@@ -78,6 +78,9 @@ FROM deps AS builder
 # Copy source code (including pre-generated Prisma client in apps/api/generated/)
 COPY . .
 
+# Generate Prisma enums for @repo/contracts (excluded from git by .gitignore)
+RUN node scripts/generate-prisma-enums.js
+
 # Build shared packages that produce dist output
 # Note: @repo/config, @repo/types, @repo/ui don't have build scripts (they export source files directly)
 RUN pnpm turbo run build --filter=@repo/validators --filter=@repo/constants --filter=@repo/utils --filter=@repo/contracts

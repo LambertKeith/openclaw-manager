@@ -1,10 +1,6 @@
 import { z } from 'zod';
-
-// Import ModelRoutingTypeSchema from prisma-enums.generated (source of truth)
-import {
-  ModelRoutingTypeSchema,
-  type ModelRoutingType,
-} from './prisma-enums.generated';
+import { ModelRoutingTypeSchema } from './prisma-enums.generated';
+export type { ModelRoutingType } from './prisma-enums.generated';
 
 // ============================================================================
 // Routing Target Schema
