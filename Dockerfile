@@ -177,8 +177,9 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 # Copy seed script and data files (for database seeding)
 COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
-# Install ts-node for seed script execution (lightweight, only needed for initial setup)
-RUN cd apps/api && pnpm add -D ts-node@^10.9.2 typescript@^5.4.5
+# Copy ts-node and typescript from builder for seed execution
+COPY --from=builder /app/node_modules/ts-node ./node_modules/ts-node
+COPY --from=builder /app/node_modules/typescript ./node_modules/typescript
 # Note: config.local.yaml and keys/config.json are mounted at runtime via docker-compose volumes
 # Copy only packages that produce dist output (constants, contracts, utils, validators)
 # Note: @repo/config and @repo/types don't produce dist (they export source files directly, types are erased at runtime)
