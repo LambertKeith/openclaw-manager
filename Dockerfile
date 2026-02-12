@@ -175,11 +175,6 @@ COPY --from=builder /app/apps/api/libs/infra/i18n ./apps/api/libs/infra/i18n
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 # Copy Prisma 7 config file (required for Prisma CLI commands)
 COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
-# Copy seed script and data files (for database seeding)
-COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
-# Copy ts-node and typescript from builder for seed execution
-COPY --from=builder /app/node_modules/ts-node ./node_modules/ts-node
-COPY --from=builder /app/node_modules/typescript ./node_modules/typescript
 # Note: config.local.yaml and keys/config.json are mounted at runtime via docker-compose volumes
 # Copy only packages that produce dist output (constants, contracts, utils, validators)
 # Note: @repo/config and @repo/types don't produce dist (they export source files directly, types are erased at runtime)
