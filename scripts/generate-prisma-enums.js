@@ -63,7 +63,10 @@ function parsePrismaEnums(schemaContent) {
     if (currentEnum && line && !line.startsWith('//')) {
       const value = line.split('//')[0].trim();
       if (value && !value.startsWith('@@')) {
-        currentEnum.values.push(value);
+        // If @map("...") exists, use the mapped value (database value); otherwise use the identifier
+        const mapMatch = value.match(/@map\("([^"]+)"\)/);
+        const enumValue = mapMatch ? mapMatch[1] : value.split(/\s+/)[0];
+        currentEnum.values.push(enumValue);
       }
     }
 

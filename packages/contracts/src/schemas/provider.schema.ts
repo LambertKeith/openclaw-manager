@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ModelType } from './prisma-enums.generated';
 
 // ============================================================================
 // Provider Vendor Schema - 支持的 AI 提供商
@@ -120,10 +121,8 @@ export type ProviderCategory = z.infer<typeof ProviderCategorySchema>;
 
 // ============================================================================
 // Model Type Schema - 模型类型 (Dify-style)
-// Defined in prisma-enums.generated, imported here for local use
+// Defined in prisma-enums.generated (uses @map values from Prisma schema)
 // ============================================================================
-
-import { type ModelType } from './prisma-enums.generated';
 
 // ============================================================================
 // Credential Form Schema - 凭证表单配置 (Dify-style)
