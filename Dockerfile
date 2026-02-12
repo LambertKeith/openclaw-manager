@@ -88,24 +88,6 @@ RUN pnpm turbo run build --filter=@repo/validators --filter=@repo/constants --fi
 # Build API (uses pre-generated Prisma client)
 RUN cd apps/api && pnpm run build
 
-# Compile seed script and data files for production use
-RUN cd apps/api && npx tsc \
-    prisma/seed.ts \
-    scripts/country-codes.data.ts \
-    scripts/channel-definitions.data.ts \
-    scripts/plugin-definitions.data.ts \
-    scripts/persona-templates.data.ts \
-    scripts/model-pricing.data.ts \
-    scripts/capability-tags.data.ts \
-    scripts/fallback-chains.data.ts \
-    scripts/cost-strategies.data.ts \
-    --outDir dist/seed \
-    --module commonjs \
-    --esModuleInterop \
-    --resolveJsonModule \
-    --skipLibCheck \
-    --target es2020
-
 # Build web app
 RUN pnpm turbo run build --filter=@repo/web
 
@@ -193,6 +175,10 @@ COPY --from=builder /app/apps/api/libs/infra/i18n ./apps/api/libs/infra/i18n
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 # Copy Prisma 7 config file (required for Prisma CLI commands)
 COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+# Copy seed script and data files (for database seeding)
+COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
+# Install ts-node for seed script execution (lightweight, only needed for initial setup)
+RUN cd apps/api && pnpm add -D ts-node@^10.9.2 typescript@^5.4.5
 # Note: config.local.yaml and keys/config.json are mounted at runtime via docker-compose volumes
 # Copy only packages that produce dist output (constants, contracts, utils, validators)
 # Note: @repo/config and @repo/types don't produce dist (they export source files directly, types are erased at runtime)
