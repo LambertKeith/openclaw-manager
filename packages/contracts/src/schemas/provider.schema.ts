@@ -120,20 +120,10 @@ export type ProviderCategory = z.infer<typeof ProviderCategorySchema>;
 
 // ============================================================================
 // Model Type Schema - 模型类型 (Dify-style)
+// Defined in prisma-enums.generated, imported here for local use
 // ============================================================================
 
-export const ModelTypeSchema = z.enum([
-  'llm', // 大语言模型
-  'text-embedding', // 文本嵌入
-  'speech2text', // 语音转文字
-  'tts', // 文字转语音
-  'moderation', // 内容审核
-  'rerank', // 重排序
-  'image', // 图像生成
-  'video', // 视频生成
-]);
-
-export type ModelType = z.infer<typeof ModelTypeSchema>;
+import { type ModelType } from './prisma-enums.generated';
 
 // ============================================================================
 // Credential Form Schema - 凭证表单配置 (Dify-style)
