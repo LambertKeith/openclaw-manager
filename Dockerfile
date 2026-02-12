@@ -88,6 +88,24 @@ RUN pnpm turbo run build --filter=@repo/validators --filter=@repo/constants --fi
 # Build API (uses pre-generated Prisma client)
 RUN cd apps/api && pnpm run build
 
+# Compile seed script and data files for production use
+RUN cd apps/api && npx tsc \
+    prisma/seed.ts \
+    scripts/country-codes.data.ts \
+    scripts/channel-definitions.data.ts \
+    scripts/plugin-definitions.data.ts \
+    scripts/persona-templates.data.ts \
+    scripts/model-pricing.data.ts \
+    scripts/capability-tags.data.ts \
+    scripts/fallback-chains.data.ts \
+    scripts/cost-strategies.data.ts \
+    --outDir dist/seed \
+    --module commonjs \
+    --esModuleInterop \
+    --resolveJsonModule \
+    --skipLibCheck \
+    --target es2020
+
 # Build web app
 RUN pnpm turbo run build --filter=@repo/web
 
