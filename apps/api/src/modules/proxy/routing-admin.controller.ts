@@ -464,7 +464,7 @@ export class RoutingAdminController {
               include: { capabilityTag: true },
             },
           },
-        },
+        } as any,
       );
 
       const result = models.map((m: any) => ({
