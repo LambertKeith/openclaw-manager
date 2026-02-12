@@ -66,6 +66,8 @@ import type {
 import { EnhancedModelSelector } from './enhanced-model-selector';
 import { FallbackChainSelector } from './fallback-chain-selector';
 import { CostStrategySelector } from './cost-strategy-selector';
+import type { EnhancedModelInfo } from '@/hooks/useRoutingConfig';
+import { useFallbackChains } from '@/hooks/useRoutingConfig';
 
 /**
  * Provider info needed for model selection
@@ -325,9 +327,11 @@ const LOAD_BALANCE_TEMPLATE_KEYS = [
 
 export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
   const t = useTranslations('bots.detail.modelRouting');
+  const { chains: fallbackChains } = useFallbackChains();
 
   const [routings, setRoutings] = useState<BotModelRouting[]>([]);
   const [botProviders, setBotProviders] = useState<ProviderInfo[]>([]);
+  const [enhancedModels, setEnhancedModels] = useState<EnhancedModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRouting, setEditingRouting] = useState<BotModelRouting | null>(
@@ -358,6 +362,7 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
     'round_robin' | 'weighted' | 'least_latency'
   >('round_robin');
   const [lbTargets, setLbTargets] = useState<LoadBalanceTarget[]>([]);
+  const [lbCostStrategyId, setLbCostStrategyId] = useState<string | null>(null);
 
   // Failover state
   const [failoverPrimary, setFailoverPrimary] = useState<RoutingTarget>({
@@ -365,6 +370,7 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
     model: '',
   });
   const [failoverChain, setFailoverChain] = useState<RoutingTarget[]>([]);
+  const [selectedChainId, setSelectedChainId] = useState<string | null>(null);
   const [retryMaxAttempts, setRetryMaxAttempts] = useState(3);
   const [retryDelayMs, setRetryDelayMs] = useState(1000);
 
@@ -381,14 +387,20 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
         setRoutings(routingsResponse.body.data.routings);
       }
 
-      if (availabilityResponse.status === 200 && availabilityResponse.body.data) {
+      if (
+        availabilityResponse.status === 200 &&
+        availabilityResponse.body.data
+      ) {
         // Transform ModelAvailabilityItem[] to ProviderInfo[]
         // Group models by providerKeyId
         const providerMap = new Map<string, ProviderInfo>();
         const availabilityList = availabilityResponse.body.data.list ?? [];
+        const enhanced: EnhancedModelInfo[] = [];
 
         for (const item of availabilityList) {
           if (!item.isAvailable) continue; // Only include available models
+
+          const vendor = item.providerKeys?.[0]?.vendor ?? '';
 
           const existing = providerMap.get(item.providerKeyId);
           if (existing) {
@@ -398,13 +410,26 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
           } else {
             providerMap.set(item.providerKeyId, {
               providerKeyId: item.providerKeyId,
-              vendor: item.providerKeys?.[0]?.vendor ?? '',
+              vendor,
               allowedModels: [item.model],
             });
           }
+
+          // Build enhanced model info with capability tags
+          enhanced.push({
+            providerKeyId: item.providerKeyId,
+            model: item.model,
+            vendor,
+            isAvailable: item.isAvailable,
+            lastVerifiedAt: item.lastVerifiedAt ?? null,
+            pricing: null,
+            capabilityTags: item.capabilityTags ?? [],
+            scores: null,
+          });
         }
 
         setBotProviders(Array.from(providerMap.values()));
+        setEnhancedModels(enhanced);
       }
     } catch {
       toast.error('Failed to load routing configurations');
@@ -478,8 +503,10 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
     setDefaultTarget({ providerKeyId: '', model: '' });
     setLbStrategy('round_robin');
     setLbTargets([]);
+    setLbCostStrategyId(null);
     setFailoverPrimary({ providerKeyId: '', model: '' });
     setFailoverChain([]);
+    setSelectedChainId(null);
     setRetryMaxAttempts(3);
     setRetryDelayMs(1000);
     setEditingRouting(null);
@@ -503,6 +530,7 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
     } else if (config.type === 'LOAD_BALANCE') {
       setLbStrategy(config.strategy);
       setLbTargets(config.targets);
+      setLbCostStrategyId(config.costStrategyId ?? null);
     } else if (config.type === 'FAILOVER') {
       setFailoverPrimary(config.primary);
       setFailoverChain(config.fallbackChain);
@@ -526,6 +554,7 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
           type: 'LOAD_BALANCE',
           strategy: lbStrategy,
           targets: lbTargets,
+          costStrategyId: lbCostStrategyId,
         };
       case 'FAILOVER':
         return {
@@ -758,6 +787,7 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
     return (
       <EnhancedModelSelector
         providers={botProviders}
+        enhancedModels={enhancedModels}
         value={target.providerKeyId && target.model ? target : null}
         onChange={onChange}
         label={label}
@@ -1347,8 +1377,9 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
                     {t('loadBalance.costOptimization')}
                   </div>
                   <CostStrategySelector
-                    value={null}
+                    value={lbCostStrategyId}
                     onChange={(strategyId) => {
+                      setLbCostStrategyId(strategyId);
                       if (strategyId) {
                         toast.info(
                           t('loadBalance.strategySelected', { strategyId }),
@@ -1524,10 +1555,48 @@ export function ModelRoutingConfig({ hostname }: ModelRoutingConfigProps) {
                     {t('failover.useExistingChain')}
                   </div>
                   <FallbackChainSelector
-                    value={null}
+                    value={selectedChainId}
                     onChange={(chainId) => {
+                      setSelectedChainId(chainId);
                       if (chainId) {
-                        toast.info(t('failover.chainSelected', { chainId }));
+                        // Resolve chain models into failover form fields
+                        const chain = fallbackChains.find(
+                          (c) => c.chainId === chainId,
+                        );
+                        const chainModels = chain?.models ?? [];
+                        if (chainModels.length > 0) {
+                          // Find matching providerKeyId for each model
+                          const resolveTarget = (m: {
+                            vendor: string;
+                            model: string;
+                          }): RoutingTarget => {
+                            const provider = botProviders.find(
+                              (p) =>
+                                p.vendor === m.vendor &&
+                                p.allowedModels.includes(m.model),
+                            );
+                            return {
+                              providerKeyId: provider?.providerKeyId ?? '',
+                              model: m.model,
+                            };
+                          };
+                          setFailoverPrimary(resolveTarget(chainModels[0]));
+                          setFailoverChain(
+                            chainModels.slice(1).map(resolveTarget),
+                          );
+                          toast.success(
+                            t('failover.chainApplied', {
+                              name: chain?.name ?? chainId,
+                              count: chainModels.length,
+                            }),
+                          );
+                        } else {
+                          toast.info(t('failover.chainSelected', { chainId }));
+                        }
+                      } else {
+                        // Cleared selection — reset failover fields
+                        setFailoverPrimary({ providerKeyId: '', model: '' });
+                        setFailoverChain([]);
                       }
                     }}
                     providers={botProviders}

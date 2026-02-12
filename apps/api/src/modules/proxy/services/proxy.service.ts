@@ -211,7 +211,7 @@ export class ProxyService {
     // Normalize model name in request body
     // OpenClaw sends model names with provider prefix (e.g., openai-compatible/gpt-4o)
     // We need to strip the prefix before forwarding to the upstream
-    let normalizedBody = this.normalizeRequestBody(body, effectiveApiType);
+    let normalizedBody = this.normalizeRequestBody(body, effectiveApiType, isCustom);
 
     // Apply complexity-based routing if enabled
     // This will analyze the request and potentially switch to a different model
@@ -385,6 +385,7 @@ export class ProxyService {
   private normalizeRequestBody(
     body: Buffer | null,
     vendor: string,
+    isCustom = false,
   ): Buffer | null {
     if (!body || body.length === 0) {
       return body;
@@ -409,10 +410,12 @@ export class ProxyService {
         }
       }
 
+      // Determine if this is a native OpenAI request (not a custom/compatible provider)
+      const isNativeOpenAI = vendor === 'openai' && !isCustom;
+
       // Inject stream_options for streaming requests to get usage data
-      // This is required for OpenAI-compatible APIs to return token usage in streaming responses
-      if (bodyJson.stream === true) {
-        // Only inject if not already present
+      // Only for native OpenAI — custom providers (e.g. Doubao) may reject unknown fields
+      if (bodyJson.stream === true && isNativeOpenAI) {
         if (!bodyJson.stream_options) {
           bodyJson.stream_options = { include_usage: true };
           modified = true;
@@ -421,6 +424,18 @@ export class ProxyService {
           bodyJson.stream_options.include_usage = true;
           modified = true;
           this.logger.debug('Enabled include_usage in stream_options');
+        }
+      }
+
+      // Strip non-standard fields that custom upstream APIs reject
+      if (!isNativeOpenAI) {
+        const nonStandardFields = ['prompt_cache_key', 'stream_options'];
+        for (const field of nonStandardFields) {
+          if (field in bodyJson) {
+            delete bodyJson[field];
+            modified = true;
+            this.logger.debug(`Stripped non-standard field: ${field} (vendor: ${vendor}, isCustom: ${isCustom})`);
+          }
         }
       }
 
