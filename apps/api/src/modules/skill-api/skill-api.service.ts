@@ -8,7 +8,12 @@ import {
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import { SkillService, BotSkillService, BotService } from '@app/db';
-import { OpenClawSkillSyncClient } from '@app/clients/internal/openclaw';
+import {
+  OpenClawSkillSyncClient,
+  OpenClawClient,
+} from '@app/clients/internal/openclaw';
+import { DockerService } from '../bot-api/services/docker.service';
+import { WorkspaceService } from '../bot-api/services/workspace.service';
 import type { Prisma } from '@prisma/client';
 import type {
   SkillListQuery,
@@ -18,6 +23,8 @@ import type {
   UpdateSkillRequest,
   InstallSkillRequest,
   UpdateBotSkillRequest,
+  BatchInstallResult,
+  ContainerSkillsResponse,
 } from '@repo/contracts';
 
 const OPENCLAW_SOURCE = 'openclaw';
@@ -30,6 +37,9 @@ export class SkillApiService {
     private readonly botSkillService: BotSkillService,
     private readonly botService: BotService,
     private readonly openClawSyncClient: OpenClawSkillSyncClient,
+    private readonly openClawClient: OpenClawClient,
+    private readonly dockerService: DockerService,
+    private readonly workspaceService: WorkspaceService,
   ) {}
 
   /**
@@ -47,6 +57,8 @@ export class SkillApiService {
     const {
       page = 1,
       limit = 20,
+      sort,
+      asc,
       skillTypeId,
       isSystem,
       search,
@@ -88,9 +100,17 @@ export class SkillApiService {
       ];
     }
 
+    // 构建排序
+    const orderBy: Record<string, string> = {};
+    if (sort && ['name', 'createdAt'].includes(sort)) {
+      orderBy[sort] = asc || 'desc';
+    } else {
+      orderBy.createdAt = 'desc';
+    }
+
     const result = await this.skillService.list(
       where,
-      { page, limit },
+      { page, limit, orderBy },
       {
         select: {
           id: true,
@@ -420,8 +440,65 @@ export class SkillApiService {
   }
 
   /**
-   * 更新 Bot 技能配置
+   * 批量安装技能到 Bot
    */
+  async batchInstallSkills(
+    userId: string,
+    hostname: string,
+    skillIds: string[],
+  ): Promise<BatchInstallResult> {
+    const bot = await this.botService.get({ hostname, createdById: userId });
+    if (!bot) {
+      throw new NotFoundException('Bot 不存在');
+    }
+
+    let installed = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const skillId of skillIds) {
+      try {
+        const skill = await this.skillService.getById(skillId);
+        if (!skill) {
+          failed++;
+          continue;
+        }
+
+        if (!skill.isSystem && skill.createdById !== userId) {
+          failed++;
+          continue;
+        }
+
+        const existing = await this.botSkillService.get({
+          botId: bot.id,
+          skillId,
+        });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        await this.botSkillService.create({
+          bot: { connect: { id: bot.id } },
+          skill: { connect: { id: skillId } },
+          config: {},
+          isEnabled: true,
+        });
+        installed++;
+      } catch {
+        failed++;
+      }
+    }
+
+    this.logger.info('Batch skill install completed', {
+      hostname,
+      installed,
+      skipped,
+      failed,
+    });
+
+    return { installed, skipped, failed };
+  }
   async updateBotSkillConfig(
     userId: string,
     hostname: string,
@@ -505,6 +582,68 @@ export class SkillApiService {
       hostname,
     });
     return { success: true };
+  }
+
+  /**
+   * 获取容器内置技能列表
+   * 策略：Docker 运行中 → exec 获取 → 持久化；否则读缓存
+   */
+  async getContainerSkills(
+    userId: string,
+    hostname: string,
+  ): Promise<ContainerSkillsResponse> {
+    const bot = await this.botService.get({ hostname, createdById: userId });
+    if (!bot) {
+      throw new NotFoundException('Bot 不存在');
+    }
+
+    // 尝试从运行中的容器获取
+    if (bot.containerId) {
+      const containerStatus = await this.dockerService.getContainerStatus(
+        bot.containerId,
+      );
+      if (containerStatus?.running) {
+        const skills = await this.openClawClient.listContainerSkills(
+          bot.containerId,
+        );
+        if (skills) {
+          // 非阻塞持久化到文件系统（仅缓存用途，不阻塞 API 响应）
+          this.workspaceService
+            .writeContainerSkills(userId, hostname, skills)
+            .catch((error) => {
+              this.logger.warn('容器技能持久化失败', {
+                hostname,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              });
+            });
+          // 列表接口不返回 content（MD 内容可能很大），减少传输体积
+          return {
+            skills: skills.map(({ content: _, ...rest }) => rest),
+            source: 'docker',
+            fetchedAt: new Date().toISOString(),
+          };
+        }
+      }
+    }
+
+    // Fallback: 读取缓存（不加载 content，列表接口不需要）
+    const cached = await this.workspaceService.readContainerSkills(
+      userId,
+      hostname,
+    );
+    if (cached) {
+      return {
+        skills: cached.skills,
+        source: 'cache',
+        fetchedAt: cached.fetchedAt,
+      };
+    }
+
+    return {
+      skills: [],
+      source: 'none',
+      fetchedAt: null,
+    };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

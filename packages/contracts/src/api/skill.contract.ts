@@ -10,6 +10,9 @@ import {
   UpdateSkillRequestSchema,
   InstallSkillRequestSchema,
   UpdateBotSkillRequestSchema,
+  BatchInstallSkillRequestSchema,
+  BatchInstallResultSchema,
+  ContainerSkillsResponseSchema,
 } from '../schemas/skill.schema';
 
 const c = initContract();
@@ -114,6 +117,20 @@ export const botSkillContract = c.router(
     },
 
     /**
+     * 获取容器内置技能列表
+     */
+    containerSkills: {
+      method: 'GET',
+      path: '/:hostname/skills/container',
+      pathParams: z.object({ hostname: z.string() }),
+      responses: {
+        200: createApiResponse(ContainerSkillsResponseSchema),
+      },
+      summary: '获取容器内置技能',
+      description: '获取 Docker 容器中自动安装的内置技能列表',
+    },
+
+    /**
      * 安装技能到 Bot
      */
     install: {
@@ -127,6 +144,21 @@ export const botSkillContract = c.router(
       },
       summary: '安装技能',
       description: '为指定 Bot 安装技能',
+    },
+
+    /**
+     * 批量安装技能到 Bot
+     */
+    batchInstall: {
+      method: 'POST',
+      path: '/:hostname/skills/batch',
+      pathParams: z.object({ hostname: z.string() }),
+      body: BatchInstallSkillRequestSchema,
+      responses: {
+        200: createApiResponse(BatchInstallResultSchema),
+      },
+      summary: '批量安装技能',
+      description: '为指定 Bot 批量安装多个技能',
     },
 
     /**

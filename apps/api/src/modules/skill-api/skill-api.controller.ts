@@ -87,6 +87,17 @@ export class SkillApiController {
     });
   }
 
+  @TsRestHandler(botSkillC.containerSkills)
+  async getContainerSkills(@Req() req: AuthenticatedRequest): Promise<any> {
+    return tsRestHandler(botSkillC.containerSkills, async ({ params }) => {
+      const result = await this.skillApiService.getContainerSkills(
+        req.userId,
+        params.hostname,
+      );
+      return success(result);
+    });
+  }
+
   @TsRestHandler(botSkillC.install)
   async installSkill(@Req() req: AuthenticatedRequest): Promise<any> {
     return tsRestHandler(botSkillC.install, async ({ params, body }) => {
@@ -94,6 +105,18 @@ export class SkillApiController {
         req.userId,
         params.hostname,
         body,
+      );
+      return success(result);
+    });
+  }
+
+  @TsRestHandler(botSkillC.batchInstall)
+  async batchInstallSkills(@Req() req: AuthenticatedRequest): Promise<any> {
+    return tsRestHandler(botSkillC.batchInstall, async ({ params, body }) => {
+      const result = await this.skillApiService.batchInstallSkills(
+        req.userId,
+        params.hostname,
+        body.skillIds,
       );
       return success(result);
     });

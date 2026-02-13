@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
@@ -19,6 +19,7 @@ import {
   Badge,
   Skeleton,
   Switch,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,6 +28,11 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -42,12 +48,22 @@ import {
   Search,
   ChevronLeft,
   Loader2,
+  ArrowUpDown,
+  CheckSquare,
+  X,
+  Box,
 } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { toast } from 'sonner';
-import type { BotSkillItem, SkillItem } from '@repo/contracts';
+import type {
+  BotSkillItem,
+  SkillItem,
+  ContainerSkillItem,
+} from '@repo/contracts';
 import { useLocalizedFields } from '@/hooks/useLocalizedFields';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+
+const PAGE_SIZE = 20;
 
 /**
  * 获取技能图标
@@ -65,11 +81,15 @@ function InstalledSkillCard({
   botSkill,
   onToggle,
   onRequestUninstall,
+  onConfigure,
+  isContainerBuiltin,
   t,
 }: {
   botSkill: BotSkillItem;
   onToggle: (skillId: string, enabled: boolean) => void;
   onRequestUninstall: (skillId: string, name: string) => void;
+  onConfigure: (botSkill: BotSkillItem) => void;
+  isContainerBuiltin: boolean;
   t: (key: string) => string;
 }) {
   const { skill } = botSkill;
@@ -101,6 +121,12 @@ function InstalledSkillCard({
       </CardHeader>
       <CardContent>
         <div className="mb-3 flex gap-1">
+          {isContainerBuiltin && (
+            <Badge variant="secondary" className="text-xs">
+              <Box className="mr-1 h-3 w-3" />
+              {t('containerBuiltin')}
+            </Badge>
+          )}
           {skill.isSystem ? (
             <Badge variant="secondary" className="text-xs">
               <Sparkles className="mr-1 h-3 w-3" />
@@ -122,7 +148,11 @@ function InstalledSkillCard({
           {getDescription(skill) || t('noDescription')}
         </p>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" disabled>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onConfigure(botSkill)}
+          >
             <Settings className="mr-1 h-3 w-3" />
             {t('configure')}
           </Button>
@@ -141,19 +171,27 @@ function InstalledSkillCard({
 }
 
 /**
- * 可安装技能卡片
+ * 可安装技能卡片（支持多选）
  */
 function AvailableSkillCard({
   skill,
   onInstall,
   onPreview,
   isInstalling,
+  isSelected,
+  onSelect,
+  batchMode,
+  isContainerBuiltin,
   t,
 }: {
   skill: SkillItem;
   onInstall: (skillId: string) => void;
   onPreview: (skill: SkillItem) => void;
   isInstalling: boolean;
+  isSelected: boolean;
+  onSelect: (skillId: string, selected: boolean) => void;
+  batchMode: boolean;
+  isContainerBuiltin: boolean;
   t: (key: string) => string;
 }) {
   const { getName, getDescription } = useLocalizedFields();
@@ -167,6 +205,15 @@ function AvailableSkillCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
+            {batchMode && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => {
+                  onSelect(skill.id, !!checked);
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
             <div className="bg-muted flex h-8 w-8 items-center justify-center rounded text-lg">
               {skillIcon}
             </div>
@@ -178,6 +225,12 @@ function AvailableSkillCard({
             </div>
           </div>
           <div className="flex gap-1">
+            {isContainerBuiltin && (
+              <Badge variant="secondary" className="text-xs">
+                <Box className="mr-1 h-3 w-3" />
+                {t('containerBuiltin')}
+              </Badge>
+            )}
             {skill.isSystem ? (
               <Badge variant="secondary" className="text-xs">
                 {t('system')}
@@ -194,27 +247,29 @@ function AvailableSkillCard({
         <p className="text-muted-foreground mb-3 line-clamp-2 text-sm">
           {getDescription(skill) || t('noDescription')}
         </p>
-        <Button
-          size="sm"
-          className="w-full"
-          onClick={(e) => {
-            e.stopPropagation();
-            onInstall(skill.id);
-          }}
-          disabled={isInstalling}
-        >
-          {isInstalling ? (
-            <>
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              {t('installing')}
-            </>
-          ) : (
-            <>
-              <Plus className="mr-1 h-3 w-3" />
-              {t('install')}
-            </>
-          )}
-        </Button>
+        {!batchMode && (
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInstall(skill.id);
+            }}
+            disabled={isInstalling}
+          >
+            {isInstalling ? (
+              <>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                {t('installing')}
+              </>
+            ) : (
+              <>
+                <Plus className="mr-1 h-3 w-3" />
+                {t('install')}
+              </>
+            )}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -312,7 +367,6 @@ function SkillDetailPreview({
           )}
         </div>
       )}
-      {/* 标签展示 */}
       {skill.definition?.tags &&
         Array.isArray(skill.definition.tags) &&
         skill.definition.tags.length > 0 && (
@@ -327,7 +381,6 @@ function SkillDetailPreview({
             </div>
           </div>
         )}
-      {/* GitHub 源链接 */}
       {skill.sourceUrl && (
         <a
           href={skill.sourceUrl}
@@ -360,6 +413,171 @@ function SkillDetailPreview({
 }
 
 /**
+ * 技能配置对话框
+ */
+function SkillConfigDialog({
+  botSkill,
+  open,
+  onOpenChange,
+  onSave,
+  isSaving,
+  t,
+}: {
+  botSkill: BotSkillItem;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (config: Record<string, unknown>) => void;
+  isSaving: boolean;
+  t: (key: string) => string;
+}) {
+  const { getName } = useLocalizedFields();
+  const [entries, setEntries] = useState<Array<{ key: string; value: string }>>(
+    () => {
+      const config = botSkill.config || {};
+      const items = Object.entries(config).map(([key, value]) => ({
+        key,
+        value: typeof value === 'string' ? value : JSON.stringify(value),
+      }));
+      return items.length > 0 ? items : [{ key: '', value: '' }];
+    },
+  );
+
+  const handleAdd = () => {
+    setEntries((prev) => [...prev, { key: '', value: '' }]);
+  };
+
+  const handleRemove = (index: number) => {
+    setEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleChange = (index: number, field: 'key' | 'value', val: string) => {
+    setEntries((prev) =>
+      prev.map((entry, i) =>
+        i === index ? { ...entry, [field]: val } : entry,
+      ),
+    );
+  };
+
+  const handleSave = () => {
+    const config: Record<string, unknown> = {};
+    for (const entry of entries) {
+      if (entry.key.trim()) {
+        try {
+          config[entry.key.trim()] = JSON.parse(entry.value);
+        } catch {
+          config[entry.key.trim()] = entry.value;
+        }
+      }
+    }
+    onSave(config);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {t('configTitle')} - {getName(botSkill.skill)}
+          </DialogTitle>
+          <DialogDescription>{t('configDescription')}</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+          {entries.map((entry, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <Input
+                placeholder={t('configKey')}
+                value={entry.key}
+                onChange={(e) => handleChange(index, 'key', e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                placeholder={t('configValue')}
+                value={entry.value}
+                onChange={(e) => handleChange(index, 'value', e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemove(index)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={handleAdd}>
+            <Plus className="mr-1 h-3 w-3" />
+            {t('addConfigItem')}
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+            {t('saveConfig')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * 容器内置技能卡片（只读）
+ */
+function ContainerSkillCard({
+  skill,
+  t,
+}: {
+  skill: ContainerSkillItem;
+  t: (key: string) => string;
+}) {
+  return (
+    <Card
+      className={`border-dashed${skill.enabled === false ? ' opacity-60' : ''}`}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-muted flex h-8 w-8 items-center justify-center rounded text-lg">
+              <Box className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{skill.name}</CardTitle>
+              {skill.version && (
+                <CardDescription className="text-xs">
+                  v{skill.version}
+                </CardDescription>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {skill.enabled === false && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground text-xs"
+              >
+                {t('disabled')}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-xs">
+              {t('containerBuiltin')}
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground line-clamp-2 text-sm">
+          {skill.description || t('noDescription')}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
  * Bot 技能管理页面
  */
 export default function BotSkillsPage() {
@@ -369,6 +587,7 @@ export default function BotSkillsPage() {
   const t = useTranslations('botSkills');
   const { getName } = useLocalizedFields();
 
+  // 基础状态
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [installingSkillId, setInstallingSkillId] = useState<string | null>(
     null,
@@ -382,6 +601,25 @@ export default function BotSkillsPage() {
     name: string;
   } | null>(null);
   const [isUninstalling, setIsUninstalling] = useState(false);
+  const [installedSearch, setInstalledSearch] = useState('');
+
+  // 排序状态
+  const [sortBy, setSortBy] = useState<'createdAt' | 'name'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // 批量安装状态
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [isBatchInstalling, setIsBatchInstalling] = useState(false);
+
+  // 配置面板状态
+  const [configTarget, setConfigTarget] = useState<BotSkillItem | null>(null);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // 获取已安装的技能
   const { data: installedResponse, isLoading: installedLoading } =
@@ -391,8 +629,54 @@ export default function BotSkillsPage() {
       { enabled: !!hostname, queryKey: ['bot-skills', hostname] },
     );
 
-  const installedSkills = installedResponse?.body?.data || [];
-  const installedSkillIds = new Set(installedSkills.map((s) => s.skillId));
+  const installedSkills = useMemo(
+    () => installedResponse?.body?.data || [],
+    [installedResponse],
+  );
+  const installedSkillIds = useMemo(
+    () => new Set(installedSkills.map((s) => s.skillId)),
+    [installedSkills],
+  );
+
+  // 获取容器内置技能（Docker exec 开销大，设置较长 staleTime）
+  const { data: containerResponse, isLoading: containerLoading } =
+    botSkillApi.containerSkills.useQuery(
+      ['bot-container-skills', hostname],
+      { params: { hostname } },
+      {
+        enabled: !!hostname,
+        queryKey: ['bot-container-skills', hostname],
+        staleTime: 5 * 60 * 1000, // 5 分钟内不重新请求
+        refetchOnWindowFocus: false,
+      },
+    );
+
+  const containerSkills = useMemo(
+    () => containerResponse?.body?.data?.skills || [],
+    [containerResponse],
+  );
+  const containerSource = containerResponse?.body?.data?.source;
+
+  // 容器技能名称集合，用于去重标识
+  const containerSkillNames = useMemo(
+    () => new Set(containerSkills.map((s) => s.name.toLowerCase())),
+    [containerSkills],
+  );
+
+  // 已安装技能客户端搜索过滤
+  const filteredInstalledSkills = useMemo(() => {
+    if (!installedSearch.trim()) return installedSkills;
+    const q = installedSearch.toLowerCase();
+    return installedSkills.filter((bs) => {
+      const s = bs.skill;
+      return (
+        s.name?.toLowerCase().includes(q) ||
+        s.nameZh?.toLowerCase().includes(q) ||
+        s.description?.toLowerCase().includes(q) ||
+        s.descriptionZh?.toLowerCase().includes(q)
+      );
+    });
+  }, [installedSkills, installedSearch]);
 
   // 获取技能分类
   const { data: skillTypesResponse } = skillSyncApi.skillTypes.useQuery(
@@ -402,14 +686,17 @@ export default function BotSkillsPage() {
   );
   const skillTypes = skillTypesResponse?.body?.data?.skillTypes || [];
 
-  // 获取所有可用技能（带搜索和分类筛选）
+  // 获取可用技能（带搜索、分类筛选、排序、分页）
   const skillListQuery = useMemo(
     () => ({
-      limit: 100,
+      limit: PAGE_SIZE,
+      page: currentPage,
+      sort: sortBy,
+      asc: sortOrder,
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
       ...(selectedTypeId !== 'all' ? { skillTypeId: selectedTypeId } : {}),
     }),
-    [debouncedSearch, selectedTypeId],
+    [debouncedSearch, selectedTypeId, sortBy, sortOrder, currentPage],
   );
 
   const { data: availableResponse, isLoading: availableLoading } =
@@ -422,11 +709,17 @@ export default function BotSkillsPage() {
       },
     );
 
-  const availableSkills = (availableResponse?.body?.data?.list || []).filter(
+  const allAvailableSkills = availableResponse?.body?.data?.list || [];
+  const totalAvailable = availableResponse?.body?.data?.total || 0;
+  const availableSkills = allAvailableSkills.filter(
     (s) => !installedSkillIds.has(s.id),
   );
+  const hasMore = currentPage * PAGE_SIZE < totalAvailable;
 
-  // 安装技能（带同步进度反馈）
+  // 重置分页（搜索/筛选/排序变化时）
+  const resetPage = useCallback(() => setCurrentPage(1), []);
+
+  // 安装技能
   const handleInstall = async (skillId: string) => {
     setInstallingSkillId(skillId);
     try {
@@ -452,6 +745,38 @@ export default function BotSkillsPage() {
     }
   };
 
+  // 批量安装
+  const handleBatchInstall = async () => {
+    if (selectedSkillIds.size === 0) return;
+    setIsBatchInstalling(true);
+    try {
+      const response = await botSkillApi.batchInstall.mutation({
+        params: { hostname },
+        body: { skillIds: Array.from(selectedSkillIds) },
+      });
+      if (response.status === 200) {
+        const result = response.body.data;
+        toast.success(
+          t('batchInstallSuccess', {
+            installed: result.installed,
+            skipped: result.skipped,
+            failed: result.failed,
+          }),
+        );
+        queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
+        setSelectedSkillIds(new Set());
+        setBatchMode(false);
+        setIsAddDialogOpen(false);
+      } else {
+        toast.error(t('installFailed'));
+      }
+    } catch {
+      toast.error(t('installFailed'));
+    } finally {
+      setIsBatchInstalling(false);
+    }
+  };
+
   // 切换技能启用状态
   const handleToggle = async (skillId: string, enabled: boolean) => {
     try {
@@ -463,12 +788,12 @@ export default function BotSkillsPage() {
         toast.success(enabled ? t('enabled') : t('disabled'));
         queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
       }
-    } catch (error) {
+    } catch {
       toast.error(t('operationFailed'));
     }
   };
 
-  // 卸载技能（带二次确认）
+  // 卸载技能
   const handleUninstall = async (skillId: string) => {
     setIsUninstalling(true);
     try {
@@ -480,12 +805,53 @@ export default function BotSkillsPage() {
         toast.success(t('uninstallSuccess'));
         queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
       }
-    } catch (error) {
+    } catch {
       toast.error(t('uninstallFailed'));
     } finally {
       setIsUninstalling(false);
       setUninstallTarget(null);
     }
+  };
+
+  // 保存配置
+  const handleSaveConfig = async (config: Record<string, unknown>) => {
+    if (!configTarget) return;
+    setIsSavingConfig(true);
+    try {
+      const response = await botSkillApi.updateConfig.mutation({
+        params: { hostname, skillId: configTarget.skillId },
+        body: { config },
+      });
+      if (response.status === 200) {
+        toast.success(t('configSaved'));
+        queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
+        setConfigTarget(null);
+      } else {
+        toast.error(t('configSaveFailed'));
+      }
+    } catch {
+      toast.error(t('configSaveFailed'));
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  // 批量选择
+  const handleSelectSkill = (skillId: string, selected: boolean) => {
+    setSelectedSkillIds((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(skillId);
+      else next.delete(skillId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedSkillIds(new Set(availableSkills.map((s) => s.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedSkillIds(new Set());
   };
 
   // 重置对话框状态
@@ -495,6 +861,9 @@ export default function BotSkillsPage() {
       setSearchQuery('');
       setSelectedTypeId('all');
       setPreviewSkill(null);
+      setBatchMode(false);
+      setSelectedSkillIds(new Set());
+      setCurrentPage(1);
     }
   };
 
@@ -531,21 +900,71 @@ export default function BotSkillsPage() {
               </DialogHeader>
               {!previewSkill && (
                 <div className="mt-4 space-y-3">
-                  {/* 搜索框 */}
-                  <div className="relative">
-                    <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-                    <Input
-                      placeholder={t('searchPlaceholder')}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
+                  {/* 搜索框 + 排序 */}
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                      <Input
+                        placeholder={t('searchPlaceholder')}
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          resetPage();
+                        }}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Select
+                      value={`${sortBy}-${sortOrder}`}
+                      onValueChange={(val) => {
+                        const [field, order] = val.split('-') as [
+                          'name' | 'createdAt',
+                          'asc' | 'desc',
+                        ];
+                        setSortBy(field);
+                        setSortOrder(order);
+                        resetPage();
+                      }}
+                    >
+                      <SelectTrigger className="w-[130px]">
+                        <ArrowUpDown className="mr-1 h-3 w-3" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="createdAt-desc">
+                          {t('sortByDate')} ↓
+                        </SelectItem>
+                        <SelectItem value="createdAt-asc">
+                          {t('sortByDate')} ↑
+                        </SelectItem>
+                        <SelectItem value="name-asc">
+                          {t('sortByName')} A-Z
+                        </SelectItem>
+                        <SelectItem value="name-desc">
+                          {t('sortByName')} Z-A
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant={batchMode ? 'default' : 'outline'}
+                      size="icon"
+                      onClick={() => {
+                        setBatchMode(!batchMode);
+                        setSelectedSkillIds(new Set());
+                      }}
+                      title={t('batchInstall')}
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                    </Button>
                   </div>
                   {/* 分类筛选 */}
                   {skillTypes.length > 0 && (
                     <Tabs
                       value={selectedTypeId}
-                      onValueChange={setSelectedTypeId}
+                      onValueChange={(val) => {
+                        setSelectedTypeId(val);
+                        resetPage();
+                      }}
                     >
                       <TabsList className="flex w-full justify-start overflow-x-auto">
                         <TabsTrigger value="all" className="shrink-0">
@@ -571,6 +990,39 @@ export default function BotSkillsPage() {
                         ))}
                       </TabsList>
                     </Tabs>
+                  )}
+                  {/* 批量操作栏 */}
+                  {batchMode && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSelectAll}
+                      >
+                        {t('selectAll')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDeselectAll}
+                      >
+                        {t('deselectAll')}
+                      </Button>
+                      {selectedSkillIds.size > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={handleBatchInstall}
+                          disabled={isBatchInstalling}
+                        >
+                          {isBatchInstalling && (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          )}
+                          {t('batchInstallCount', {
+                            count: selectedSkillIds.size,
+                          })}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -600,23 +1052,85 @@ export default function BotSkillsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {availableSkills.map((skill) => (
-                    <AvailableSkillCard
-                      key={skill.id}
-                      skill={skill}
-                      onInstall={handleInstall}
-                      onPreview={setPreviewSkill}
-                      isInstalling={installingSkillId === skill.id}
-                      t={t}
-                    />
-                  ))}
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {availableSkills.map((skill) => (
+                      <AvailableSkillCard
+                        key={skill.id}
+                        skill={skill}
+                        onInstall={handleInstall}
+                        onPreview={setPreviewSkill}
+                        isInstalling={installingSkillId === skill.id}
+                        isSelected={selectedSkillIds.has(skill.id)}
+                        onSelect={handleSelectSkill}
+                        batchMode={batchMode}
+                        isContainerBuiltin={containerSkillNames.has(
+                          (skill.slug || skill.name).toLowerCase(),
+                        )}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+                  {/* 分页：加载更多 */}
+                  {hasMore && (
+                    <div className="pt-2 text-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        disabled={availableLoading}
+                      >
+                        {t('loadMore')}
+                      </Button>
+                    </div>
+                  )}
+                  {!hasMore && availableSkills.length > 0 && (
+                    <p className="text-muted-foreground pt-2 text-center text-xs">
+                      {t('noMore')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* 容器内置技能 */}
+      {containerLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-40" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2].map((i) => (
+              <SkillCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        containerSkills.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">
+                {t('containerSkillsTitle')}
+              </h2>
+              {containerSource && containerSource !== 'none' && (
+                <Badge
+                  variant={containerSource === 'docker' ? 'default' : 'outline'}
+                  className="text-xs"
+                >
+                  {containerSource === 'docker'
+                    ? t('liveFromContainer')
+                    : t('cachedData')}
+                </Badge>
+              )}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {containerSkills.map((skill) => (
+                <ContainerSkillCard key={skill.name} skill={skill} t={t} />
+              ))}
+            </div>
+          </div>
+        )
+      )}
 
       {/* 已安装技能列表 */}
       {installedLoading ? (
@@ -639,19 +1153,43 @@ export default function BotSkillsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {installedSkills.map((botSkill) => (
-            <InstalledSkillCard
-              key={botSkill.id}
-              botSkill={botSkill}
-              onToggle={handleToggle}
-              onRequestUninstall={(skillId, name) =>
-                setUninstallTarget({ skillId, name })
-              }
-              t={t}
-            />
-          ))}
-        </div>
+        <>
+          {installedSkills.length > 3 && (
+            <div className="relative max-w-sm">
+              <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+              <Input
+                placeholder={t('searchInstalledPlaceholder')}
+                value={installedSearch}
+                onChange={(e) => setInstalledSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          )}
+          {filteredInstalledSkills.length === 0 ? (
+            <div className="text-muted-foreground py-8 text-center">
+              <Search className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <p>{t('noSearchResults')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredInstalledSkills.map((botSkill) => (
+                <InstalledSkillCard
+                  key={botSkill.id}
+                  botSkill={botSkill}
+                  onToggle={handleToggle}
+                  onRequestUninstall={(skillId, name) =>
+                    setUninstallTarget({ skillId, name })
+                  }
+                  onConfigure={setConfigTarget}
+                  isContainerBuiltin={containerSkillNames.has(
+                    (botSkill.skill.slug || botSkill.skill.name).toLowerCase(),
+                  )}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* 卸载确认对话框 */}
@@ -698,6 +1236,18 @@ export default function BotSkillsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 技能配置对话框 */}
+      {configTarget && (
+        <SkillConfigDialog
+          botSkill={configTarget}
+          open={!!configTarget}
+          onOpenChange={(open) => !open && setConfigTarget(null)}
+          onSave={handleSaveConfig}
+          isSaving={isSavingConfig}
+          t={t}
+        />
+      )}
     </div>
   );
 }
