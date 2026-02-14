@@ -318,6 +318,7 @@ exports.Prisma.ProviderKeyScalarFieldEnum = {
   label: 'label',
   tag: 'tag',
   baseUrl: 'baseUrl',
+  metadata: 'metadata',
   createdById: 'createdById',
   isDeleted: 'isDeleted',
   createdAt: 'createdAt',
@@ -338,22 +339,20 @@ exports.Prisma.ModelAvailabilityScalarFieldEnum = {
   id: 'id',
   model: 'model',
   providerKeyId: 'providerKeyId',
+  modelCatalogId: 'modelCatalogId',
   modelType: 'modelType',
-  modelPricingId: 'modelPricingId',
   isAvailable: 'isAvailable',
   lastVerifiedAt: 'lastVerifiedAt',
   errorMessage: 'errorMessage',
-  pricingSynced: 'pricingSynced',
-  pricingSyncedAt: 'pricingSyncedAt',
-  tagsSynced: 'tagsSynced',
-  tagsSyncedAt: 'tagsSyncedAt',
+  vendorPriority: 'vendorPriority',
+  healthScore: 'healthScore',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
 
 exports.Prisma.ModelCapabilityTagScalarFieldEnum = {
   id: 'id',
-  modelAvailabilityId: 'modelAvailabilityId',
+  modelCatalogId: 'modelCatalogId',
   capabilityTagId: 'capabilityTagId',
   matchSource: 'matchSource',
   confidence: 'confidence',
@@ -528,6 +527,7 @@ exports.Prisma.SkillScalarFieldEnum = {
   description: 'description',
   descriptionZh: 'descriptionZh',
   version: 'version',
+  latestVersion: 'latestVersion',
   skillTypeId: 'skillTypeId',
   definition: 'definition',
   examples: 'examples',
@@ -549,12 +549,16 @@ exports.Prisma.BotSkillScalarFieldEnum = {
   botId: 'botId',
   skillId: 'skillId',
   config: 'config',
+  installedVersion: 'installedVersion',
+  fileCount: 'fileCount',
+  scriptExecuted: 'scriptExecuted',
+  hasReferences: 'hasReferences',
   isEnabled: 'isEnabled',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.ModelPricingScalarFieldEnum = {
+exports.Prisma.ModelCatalogScalarFieldEnum = {
   id: 'id',
   model: 'model',
   vendor: 'vendor',
@@ -722,7 +726,7 @@ exports.Prisma.ComplexityRoutingConfigScalarFieldEnum = {
 exports.Prisma.FallbackChainModelScalarFieldEnum = {
   id: 'id',
   fallbackChainId: 'fallbackChainId',
-  modelAvailabilityId: 'modelAvailabilityId',
+  modelCatalogId: 'modelCatalogId',
   priority: 'priority',
   protocolOverride: 'protocolOverride',
   featuresOverride: 'featuresOverride',
@@ -733,7 +737,7 @@ exports.Prisma.ComplexityRoutingModelMappingScalarFieldEnum = {
   id: 'id',
   complexityConfigId: 'complexityConfigId',
   complexityLevel: 'complexityLevel',
-  modelAvailabilityId: 'modelAvailabilityId',
+  modelCatalogId: 'modelCatalogId',
   priority: 'priority',
   createdAt: 'createdAt'
 };
@@ -901,7 +905,7 @@ exports.Prisma.ModelName = {
   SkillType: 'SkillType',
   Skill: 'Skill',
   BotSkill: 'BotSkill',
-  ModelPricing: 'ModelPricing',
+  ModelCatalog: 'ModelCatalog',
   BotModelRouting: 'BotModelRouting',
   BotChannel: 'BotChannel',
   CapabilityTag: 'CapabilityTag',

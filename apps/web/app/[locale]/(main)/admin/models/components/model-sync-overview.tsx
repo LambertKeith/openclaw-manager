@@ -72,7 +72,7 @@ export function ModelSyncOverview() {
   }
 
   const pricingProgress = syncStatus
-    ? (syncStatus.pricingSynced / syncStatus.totalModels) * 100
+    ? (syncStatus.catalogSynced / syncStatus.totalModels) * 100
     : 0;
   const tagsProgress = syncStatus
     ? (syncStatus.tagsSynced / syncStatus.totalModels) * 100
@@ -131,7 +131,7 @@ export function ModelSyncOverview() {
         />
         <StatusCard
           title="定价已同步"
-          value={syncStatus?.pricingSynced ?? 0}
+          value={syncStatus?.catalogSynced ?? 0}
           total={syncStatus?.totalModels ?? 0}
           icon={DollarSign}
           description="已关联定价信息的模型"
@@ -161,9 +161,9 @@ export function ModelSyncOverview() {
       {/* 快捷链接 */}
       <div className="grid gap-4 md:grid-cols-3">
         <QuickLinkCard
-          title="模型定价"
+          title="模型目录"
           description="管理各模型的定价信息"
-          href="/routing/model-pricing"
+          href="/routing/model-catalog"
           icon={DollarSign}
         />
         <QuickLinkCard

@@ -1,18 +1,18 @@
 #!/usr/bin/env ts-node
 /**
- * 模型定价更新脚本
+ * 模型目录更新脚本
  *
  * 用于定期更新 AI 模型的定价信息到数据库
  *
  * 使用方法:
  *   # 直接运行（使用 ts-node）
- *   npx ts-node scripts/update-model-pricing.ts
+ *   npx ts-node scripts/update-model-catalog.ts
  *
  *   # 或者添加到 package.json scripts
- *   pnpm update:model-pricing
+ *   pnpm update:model-catalog
  *
  *   # 定时任务（cron）示例 - 每天凌晨 3 点更新
- *   0 3 * * * cd /path/to/apps/api && npx ts-node scripts/update-model-pricing.ts >> /var/log/model-pricing.log 2>&1
+ *   0 3 * * * cd /path/to/apps/api && npx ts-node scripts/update-model-catalog.ts >> /var/log/model-catalog.log 2>&1
  *
  * 环境变量:
  *   DATABASE_URL - 数据库连接字符串（必需）
@@ -22,7 +22,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { MODEL_PRICING_DATA } from './model-pricing.data';
+import { MODEL_CATALOG_DATA } from './model-catalog.data';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -42,7 +42,7 @@ interface UpdateStats {
   errors: string[];
 }
 
-async function updateModelPricing(): Promise<UpdateStats> {
+async function updateModelCatalog(): Promise<UpdateStats> {
   const stats: UpdateStats = {
     created: 0,
     updated: 0,
@@ -50,12 +50,12 @@ async function updateModelPricing(): Promise<UpdateStats> {
     errors: [],
   };
 
-  console.log('💰 Starting model pricing update...');
-  console.log(`📊 Processing ${MODEL_PRICING_DATA.length} models...\n`);
+  console.log('💰 Starting model catalog update...');
+  console.log(`📊 Processing ${MODEL_CATALOG_DATA.length} models...\n`);
 
-  for (const pricingData of MODEL_PRICING_DATA) {
+  for (const pricingData of MODEL_CATALOG_DATA) {
     try {
-      const existing = await prisma.modelPricing.findUnique({
+      const existing = await prisma.modelCatalog.findUnique({
         where: { model: pricingData.model },
       });
 
@@ -69,7 +69,7 @@ async function updateModelPricing(): Promise<UpdateStats> {
           existing.notes !== pricingData.notes;
 
         if (hasChanged) {
-          await prisma.modelPricing.update({
+          await prisma.modelCatalog.update({
             where: { model: pricingData.model },
             data: {
               vendor: pricingData.vendor,
@@ -87,7 +87,7 @@ async function updateModelPricing(): Promise<UpdateStats> {
           stats.skipped++;
         }
       } else {
-        await prisma.modelPricing.create({
+        await prisma.modelCatalog.create({
           data: {
             model: pricingData.model,
             vendor: pricingData.vendor,
@@ -115,11 +115,11 @@ async function printSummary(stats: UpdateStats): Promise<void> {
   console.log('📊 Update Summary');
   console.log('='.repeat(60));
 
-  const totalCount = await prisma.modelPricing.count({
+  const totalCount = await prisma.modelCatalog.count({
     where: { isDeleted: false },
   });
 
-  const vendorCounts = await prisma.modelPricing.groupBy({
+  const vendorCounts = await prisma.modelCatalog.groupBy({
     by: ['vendor'],
     where: { isDeleted: false },
     _count: true,
@@ -146,18 +146,20 @@ async function printSummary(stats: UpdateStats): Promise<void> {
   }
 
   console.log('\n' + '='.repeat(60));
-  console.log(`✅ Model pricing update completed at ${new Date().toISOString()}`);
+  console.log(
+    `✅ Model catalog update completed at ${new Date().toISOString()}`,
+  );
   console.log('='.repeat(60));
 }
 
 async function main(): Promise<void> {
   console.log('='.repeat(60));
-  console.log('🚀 Model Pricing Update Script');
+  console.log('🚀 Model Catalog Update Script');
   console.log(`📅 Started at: ${new Date().toISOString()}`);
   console.log('='.repeat(60) + '\n');
 
   try {
-    const stats = await updateModelPricing();
+    const stats = await updateModelCatalog();
     await printSummary(stats);
 
     if (stats.errors.length > 0) {

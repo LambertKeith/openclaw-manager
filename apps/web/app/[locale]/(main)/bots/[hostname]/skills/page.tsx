@@ -50,9 +50,13 @@ import {
   ChevronLeft,
   Loader2,
   ArrowUpDown,
+  ArrowUpCircle,
   CheckSquare,
   X,
   Box,
+  RefreshCw,
+  FileText,
+  Terminal,
 } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { toast } from 'sonner';
@@ -63,6 +67,9 @@ import type {
 } from '@repo/contracts';
 import { useLocalizedFields } from '@/hooks/useLocalizedFields';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useLocale } from 'next-intl';
+import { formatDistanceToNow } from 'date-fns';
+import { zhCN, enUS } from 'date-fns/locale';
 
 const PAGE_SIZE = 20;
 
@@ -83,6 +90,8 @@ function InstalledSkillCard({
   onToggle,
   onRequestUninstall,
   onConfigure,
+  onUpdate,
+  isUpdating,
   isContainerBuiltin,
   t,
 }: {
@@ -90,12 +99,16 @@ function InstalledSkillCard({
   onToggle: (skillId: string, enabled: boolean) => void;
   onRequestUninstall: (skillId: string, name: string) => void;
   onConfigure: (botSkill: BotSkillItem) => void;
+  onUpdate: (skillId: string) => void;
+  isUpdating: boolean;
   isContainerBuiltin: boolean;
-  t: (key: string) => string;
+  t: (key: string, values?: Record<string, string | number | Date>) => string;
 }) {
   const { skill } = botSkill;
   const { getName, getDescription } = useLocalizedFields();
+  const locale = useLocale();
   const skillIcon = getSkillIcon(skill);
+  const dateLocale = locale === 'zh-CN' ? zhCN : enUS;
 
   return (
     <Card>
@@ -108,11 +121,17 @@ function InstalledSkillCard({
             <div>
               <CardTitle className="text-base">{getName(skill)}</CardTitle>
               <CardDescription className="text-xs">
-                v{skill.version}
+                v{botSkill.installedVersion || skill.version}
               </CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {botSkill.updateAvailable && (
+              <Badge variant="default" className="text-xs">
+                <ArrowUpCircle className="mr-1 h-3 w-3" />
+                {t('updateAvailable')}
+              </Badge>
+            )}
             <Switch
               checked={botSkill.isEnabled}
               onCheckedChange={(checked) => onToggle(skill.id, checked)}
@@ -121,7 +140,12 @@ function InstalledSkillCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-3 flex gap-1">
+        <div className="mb-3 flex flex-wrap gap-1">
+          {skill.source === 'openclaw' && (
+            <Badge variant="outline" className="text-xs">
+              OpenClaw
+            </Badge>
+          )}
           {isContainerBuiltin && (
             <Badge variant="secondary" className="text-xs">
               <Box className="mr-1 h-3 w-3" />
@@ -145,10 +169,55 @@ function InstalledSkillCard({
             </Badge>
           )}
         </div>
-        <p className="text-muted-foreground mb-3 line-clamp-2 text-sm">
+        <p className="text-muted-foreground mb-1 line-clamp-2 text-sm">
           {getDescription(skill) || t('noDescription')}
         </p>
+        <div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+          {skill.author && skill.author !== 'unknown' && (
+            <span>by {skill.author}</span>
+          )}
+          {botSkill.fileCount && botSkill.fileCount > 1 && (
+            <span className="inline-flex items-center gap-0.5">
+              <FileText className="h-3 w-3" />
+              {t('fileCount', { count: botSkill.fileCount })}
+            </span>
+          )}
+          {botSkill.scriptExecuted && (
+            <span className="inline-flex items-center gap-0.5">
+              <Terminal className="h-3 w-3" />
+              {t('hasScript')}
+            </span>
+          )}
+          {botSkill.hasReferences && (
+            <span className="inline-flex items-center gap-0.5">
+              <FileText className="h-3 w-3" />
+              {t('hasReferences')}
+            </span>
+          )}
+          <span>
+            {t('lastUpdated')}{' '}
+            {formatDistanceToNow(new Date(botSkill.updatedAt), {
+              addSuffix: true,
+              locale: dateLocale,
+            })}
+          </span>
+        </div>
         <div className="flex justify-end gap-2">
+          {botSkill.updateAvailable && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onUpdate(skill.id)}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <ArrowUpCircle className="mr-1 h-3 w-3" />
+              )}
+              {isUpdating ? t('updating') : t('update')}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -368,8 +437,7 @@ function SkillDetailPreview({
           )}
         </div>
       )}
-      {skill.definition?.tags &&
-        Array.isArray(skill.definition.tags) &&
+      {Array.isArray(skill.definition?.tags) &&
         skill.definition.tags.length > 0 && (
           <div>
             <span className="text-muted-foreground text-sm">{t('tags')}:</span>
@@ -603,6 +671,8 @@ export default function BotSkillsPage() {
   } | null>(null);
   const [isUninstalling, setIsUninstalling] = useState(false);
   const [installedSearch, setInstalledSearch] = useState('');
+  const [updatingSkillId, setUpdatingSkillId] = useState<string | null>(null);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
 
   // 排序状态
   const [sortBy, setSortBy] = useState<'createdAt' | 'name'>('createdAt');
@@ -729,7 +799,12 @@ export default function BotSkillsPage() {
         body: { skillId },
       });
       if (response.status === 200) {
-        toast.success(t('installSuccess'));
+        const skill = response.body.data.skill;
+        const msg =
+          skill.source === 'openclaw'
+            ? t('installSuccessOpenClaw')
+            : t('installSuccess');
+        toast.success(msg);
         queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
         setIsAddDialogOpen(false);
         setPreviewSkill(null);
@@ -737,10 +812,14 @@ export default function BotSkillsPage() {
         toast.warning(t('alreadyInstalled'));
         queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
       } else {
-        toast.error(t('installFailed'));
+        toast.error(t('installFailed'), {
+          action: { label: t('retry'), onClick: () => handleInstall(skillId) },
+        });
       }
     } catch {
-      toast.error(t('installFailed'));
+      toast.error(t('installFailed'), {
+        action: { label: t('retry'), onClick: () => handleInstall(skillId) },
+      });
     } finally {
       setInstallingSkillId(null);
     }
@@ -769,10 +848,14 @@ export default function BotSkillsPage() {
         setBatchMode(false);
         setIsAddDialogOpen(false);
       } else {
-        toast.error(t('installFailed'));
+        toast.error(t('installFailed'), {
+          action: { label: t('retry'), onClick: () => handleBatchInstall() },
+        });
       }
     } catch {
-      toast.error(t('installFailed'));
+      toast.error(t('installFailed'), {
+        action: { label: t('retry'), onClick: () => handleBatchInstall() },
+      });
     } finally {
       setIsBatchInstalling(false);
     }
@@ -811,6 +894,71 @@ export default function BotSkillsPage() {
     } finally {
       setIsUninstalling(false);
       setUninstallTarget(null);
+    }
+  };
+
+  // 更新技能版本
+  const handleUpdate = async (skillId: string) => {
+    setUpdatingSkillId(skillId);
+    try {
+      const response = await botSkillApi.updateVersion.mutation({
+        params: { hostname, skillId },
+        body: {},
+      });
+      if (response.status === 200) {
+        const result = response.body.data;
+        toast.success(
+          t('updateSuccess', {
+            previousVersion: result.previousVersion || '?',
+            newVersion: result.newVersion,
+          }),
+        );
+        queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
+      } else {
+        toast.error(t('updateFailed'), {
+          action: { label: t('retry'), onClick: () => handleUpdate(skillId) },
+        });
+      }
+    } catch {
+      toast.error(t('updateFailed'), {
+        action: { label: t('retry'), onClick: () => handleUpdate(skillId) },
+      });
+    } finally {
+      setUpdatingSkillId(null);
+    }
+  };
+
+  // 批量检查更新
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdates(true);
+    try {
+      const response = await botSkillApi.checkUpdates.mutation({
+        params: { hostname },
+        body: {},
+      });
+      if (response.status === 200) {
+        const result = response.body.data;
+        if (result.updatesAvailable > 0) {
+          toast.success(
+            t('checkUpdatesResult', {
+              updatesAvailable: String(result.updatesAvailable),
+            }),
+          );
+        } else {
+          toast.success(t('noUpdatesAvailable'));
+        }
+        queryClient.invalidateQueries({ queryKey: ['bot-skills', hostname] });
+      } else {
+        toast.error(t('checkUpdatesFailed'), {
+          action: { label: t('retry'), onClick: () => handleCheckUpdates() },
+        });
+      }
+    } catch {
+      toast.error(t('checkUpdatesFailed'), {
+        action: { label: t('retry'), onClick: () => handleCheckUpdates() },
+      });
+    } finally {
+      setIsCheckingUpdates(false);
     }
   };
 
@@ -1150,17 +1298,32 @@ export default function BotSkillsPage() {
             </Card>
           ) : (
             <>
-              {installedSkills.length > 3 && (
-                <div className="relative max-w-sm">
-                  <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-                  <Input
-                    placeholder={t('searchInstalledPlaceholder')}
-                    value={installedSearch}
-                    onChange={(e) => setInstalledSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {installedSkills.length > 3 && (
+                  <div className="relative max-w-sm flex-1">
+                    <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                    <Input
+                      placeholder={t('searchInstalledPlaceholder')}
+                      value={installedSearch}
+                      onChange={(e) => setInstalledSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCheckUpdates}
+                  disabled={isCheckingUpdates}
+                >
+                  {isCheckingUpdates ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                  )}
+                  {isCheckingUpdates ? t('checkingUpdates') : t('checkUpdates')}
+                </Button>
+              </div>
               {filteredInstalledSkills.length === 0 ? (
                 <div className="text-muted-foreground py-8 text-center">
                   <Search className="mx-auto mb-4 h-12 w-12 opacity-50" />
@@ -1177,6 +1340,8 @@ export default function BotSkillsPage() {
                         setUninstallTarget({ skillId, name })
                       }
                       onConfigure={setConfigTarget}
+                      onUpdate={handleUpdate}
+                      isUpdating={updatingSkillId === botSkill.skillId}
                       isContainerBuiltin={containerSkillNames.has(
                         (
                           botSkill.skill.slug || botSkill.skill.name

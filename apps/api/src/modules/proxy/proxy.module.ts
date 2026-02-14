@@ -9,7 +9,7 @@ import {
   BotModelRoutingModule,
   UserInfoModule,
   // Routing configuration DB modules
-  ModelPricingModule,
+  ModelCatalogModule,
   CapabilityTagModule,
   FallbackChainModule,
   CostStrategyModule,
@@ -20,6 +20,8 @@ import {
   // Fallback chain & complexity routing model mapping modules
   FallbackChainModelModule,
   ComplexityRoutingModelMappingModule,
+  // Model capability tag module
+  ModelCapabilityTagModule,
 } from '@app/db';
 import { AuthModule } from '@app/auth';
 import { JwtModule } from '@app/jwt/jwt.module';
@@ -42,6 +44,8 @@ import { FallbackEngineService } from './services/fallback-engine.service';
 import { CostTrackerService } from './services/cost-tracker.service';
 import { ConfigurationService } from './services/configuration.service';
 import { BotComplexityRoutingService } from './services/bot-complexity-routing.service';
+import { ModelResolverService } from './services/model-resolver.service';
+import { CapabilityTagMatchingService } from '../bot-api/services/capability-tag-matching.service';
 
 /**
  * ProxyModule - API 代理模块
@@ -71,7 +75,7 @@ import { BotComplexityRoutingService } from './services/bot-complexity-routing.s
     ProxyTokenModule,
     BotModelRoutingModule,
     // Routing configuration DB modules
-    ModelPricingModule,
+    ModelCatalogModule,
     CapabilityTagModule,
     FallbackChainModule,
     CostStrategyModule,
@@ -82,6 +86,8 @@ import { BotComplexityRoutingService } from './services/bot-complexity-routing.s
     // Fallback chain & complexity routing model mapping modules
     FallbackChainModelModule,
     ComplexityRoutingModelMappingModule,
+    // Model capability tag module
+    ModelCapabilityTagModule,
     // Complexity classifier for complexity-based routing
     ComplexityClassifierModule,
   ],
@@ -102,6 +108,10 @@ import { BotComplexityRoutingService } from './services/bot-complexity-routing.s
     ConfigurationService,
     // Bot complexity routing service
     BotComplexityRoutingService,
+    // Model resolver service (model → vendor instance)
+    ModelResolverService,
+    // Capability tag matching service (auto-sync tags)
+    CapabilityTagMatchingService,
   ],
   exports: [
     ProxyService,
@@ -116,6 +126,8 @@ import { BotComplexityRoutingService } from './services/bot-complexity-routing.s
     ConfigurationService,
     // Bot complexity routing service
     BotComplexityRoutingService,
+    // Model resolver service
+    ModelResolverService,
   ],
 })
 export class ProxyModule {}

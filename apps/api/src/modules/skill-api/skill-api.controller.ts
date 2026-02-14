@@ -135,6 +135,29 @@ export class SkillApiController {
     });
   }
 
+  @TsRestHandler(botSkillC.updateVersion)
+  async updateSkillVersion(@Req() req: AuthenticatedRequest): Promise<any> {
+    return tsRestHandler(botSkillC.updateVersion, async ({ params }) => {
+      const result = await this.skillApiService.updateSkillVersion(
+        req.userId,
+        params.hostname,
+        params.skillId,
+      );
+      return success(result);
+    });
+  }
+
+  @TsRestHandler(botSkillC.checkUpdates)
+  async checkSkillUpdates(@Req() req: AuthenticatedRequest): Promise<any> {
+    return tsRestHandler(botSkillC.checkUpdates, async ({ params }) => {
+      const result = await this.skillApiService.checkSkillUpdates(
+        req.userId,
+        params.hostname,
+      );
+      return success(result);
+    });
+  }
+
   @TsRestHandler(botSkillC.uninstall)
   async uninstallSkill(@Req() req: AuthenticatedRequest): Promise<any> {
     return tsRestHandler(botSkillC.uninstall, async ({ params }) => {

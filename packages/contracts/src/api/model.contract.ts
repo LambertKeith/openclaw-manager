@@ -183,14 +183,14 @@ export const modelContract = c.router(
     },
 
     /**
-     * GET /model/:modelAvailabilityId/tags - 获取模型的能力标签
+     * GET /model/:modelCatalogId/tags - 获取模型的能力标签
      * 返回指定模型的所有能力标签关联
      * 仅限管理员访问
      */
     getModelTags: {
       method: 'GET',
-      path: '/:modelAvailabilityId/tags',
-      pathParams: z.object({ modelAvailabilityId: z.string().uuid() }),
+      path: '/:modelCatalogId/tags',
+      pathParams: z.object({ modelCatalogId: z.string().uuid() }),
       responses: {
         200: ApiResponseSchema(ModelCapabilityTagsResponseSchema),
         404: ApiResponseSchema(z.object({ error: z.string() })),
@@ -251,7 +251,7 @@ export const modelContract = c.router(
 
     /**
      * POST /model/sync-pricing - 同步模型定价信息
-     * 从 ModelPricing 表查找匹配的定价并关联到 ModelAvailability
+     * 从 ModelCatalog 表查找匹配的定价并关联到 ModelAvailability
      * 仅限管理员访问
      */
     syncPricing: {

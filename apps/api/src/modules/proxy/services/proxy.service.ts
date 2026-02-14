@@ -1,5 +1,4 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { ServerResponse } from 'http';
 import { BotService, BotUsageLogService } from '@app/db';
 import { EncryptionService } from '../../bot-api/services/encryption.service';
@@ -57,7 +56,6 @@ export interface ProxyResult {
 export class ProxyService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
-    private readonly configService: ConfigService,
     private readonly botService: BotService,
     private readonly botUsageLogService: BotUsageLogService,
     private readonly encryptionService: EncryptionService,
@@ -122,6 +120,7 @@ export class ProxyService {
     let apiKey: string;
     let baseUrl: string | null | undefined;
     let effectiveApiType: string;
+    let metadata: Record<string, unknown> | null | undefined;
 
     if (isZeroTrust) {
       // Zero-Trust Mode: 使用 ProxyToken 验证
@@ -161,6 +160,7 @@ export class ProxyService {
       keyId = validation.keyId!;
       apiKey = validation.apiKey!;
       baseUrl = validation.baseUrl;
+      metadata = validation.metadata;
       // 使用 token 中的 apiType，如果没有则使用 URL 解析的 apiType
       effectiveApiType = validation.apiType || urlApiType;
     } else {
@@ -190,6 +190,7 @@ export class ProxyService {
       keyId = keySelection.keyId;
       apiKey = keySelection.secret;
       baseUrl = keySelection.baseUrl;
+      metadata = keySelection.metadata;
       effectiveApiType = urlApiType;
     }
 
@@ -266,6 +267,8 @@ export class ProxyService {
             body: normalizedBody,
             apiKey,
             customUrl: baseUrl || undefined,
+            metadata,
+            vendor,
           },
           rawResponse,
           effectiveApiType,

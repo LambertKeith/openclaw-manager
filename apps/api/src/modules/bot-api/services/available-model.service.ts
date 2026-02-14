@@ -3,7 +3,7 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 import {
   ModelAvailabilityService,
-  ModelPricingService,
+  ModelCatalogService,
   BotModelService,
   ProviderKeyService,
   ModelCapabilityTagService,
@@ -160,7 +160,7 @@ const MODEL_DISPLAY_NAMES_FALLBACK: Record<string, string> = {
  * 负责聚合模型信息，提供面向用户的模型列表
  *
  * 功能：
- * 1. 获取所有可用模型列表（聚合 ModelAvailability 和 ModelPricing）
+ * 1. 获取所有可用模型列表（聚合 ModelAvailability 和 ModelCatalog）
  * 2. 获取 Bot 的模型列表
  * 3. 更新 Bot 的模型配置
  */
@@ -169,7 +169,7 @@ export class AvailableModelService {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
     private readonly modelAvailabilityService: ModelAvailabilityService,
-    private readonly modelPricingService: ModelPricingService,
+    private readonly modelCatalogService: ModelCatalogService,
     private readonly botModelService: BotModelService,
     private readonly providerKeyService: ProviderKeyService,
     private readonly modelCapabilityTagService: ModelCapabilityTagService,
@@ -204,7 +204,7 @@ export class AvailableModelService {
   /**
    * 获取所有可用模型列表
    * 数据来源：ModelAvailability 表（从 Provider API 发现的模型）
-   * 补充信息：ModelPricing 表（定价和评分信息）
+   * 补充信息：ModelCatalog 表（定价和评分信息）
    *
    * @param includeProviderInfo 是否包含 Provider 信息（仅管理员）
    */
@@ -223,10 +223,11 @@ export class AvailableModelService {
       await this.modelAvailabilityService.list({}, { limit: 1000 });
 
     // 3. 获取所有模型定价信息（用于补充显示名称和评分）
-    const pricingList = await this.modelPricingService.listAll();
+    const pricingList = await this.modelCatalogService.listAll();
     const pricingMap = new Map(
       pricingList.map((p) => [`${p.vendor}:${p.model}`, p]),
     );
+    const catalogByModel = new Map(pricingList.map((p) => [p.model, p]));
 
     // 4. 获取所有能力标签关联
     const { list: allCapabilityTags } =
@@ -235,41 +236,51 @@ export class AvailableModelService {
         { limit: 10000 },
         {
           select: {
-            modelAvailabilityId: true,
-            capabilityTag: { select: { tagId: true, name: true, category: true } },
+            modelCatalogId: true,
+            capabilityTag: {
+              select: { tagId: true, name: true, category: true },
+            },
           },
         },
       );
 
-    // 构建 modelAvailabilityId -> tagIds 映射 和 tagId -> tagInfo 映射
+    // 构建 modelCatalogId -> tagIds 映射 和 tagId -> tagInfo 映射
     interface TagInfo {
       tagId: string;
       name: string;
       category?: string;
     }
-    const capabilityTagsByAvailabilityId = new Map<string, string[]>();
+    const capabilityTagsByCatalogId = new Map<string, string[]>();
     const tagInfoMap = new Map<string, TagInfo>();
     for (const ct of allCapabilityTags) {
-      const tags =
-        capabilityTagsByAvailabilityId.get(ct.modelAvailabilityId) || [];
-      const capTag = (ct as { capabilityTag?: { tagId: string; name: string; category: string } }).capabilityTag;
+      const tags = capabilityTagsByCatalogId.get(ct.modelCatalogId) || [];
+      const capTag = (
+        ct as {
+          capabilityTag?: { tagId: string; name: string; category: string };
+        }
+      ).capabilityTag;
       const tagId = capTag?.tagId;
       if (tagId && !tags.includes(tagId)) {
         tags.push(tagId);
         if (capTag && !tagInfoMap.has(tagId)) {
-          tagInfoMap.set(tagId, { tagId, name: capTag.name, category: capTag.category });
+          tagInfoMap.set(tagId, {
+            tagId,
+            name: capTag.name,
+            category: capTag.category,
+          });
         }
       }
-      capabilityTagsByAvailabilityId.set(ct.modelAvailabilityId, tags);
+      capabilityTagsByCatalogId.set(ct.modelCatalogId, tags);
     }
 
-    // 5. 按 vendor:model 聚合模型信息
-    // 同一个模型可能有多个 Provider，需要聚合
+    // 5. 按 model 名称聚合模型信息
+    // 同一个模型可能来自多个 Vendor / Provider，以 model 名为唯一键合并
     const modelAggregation = new Map<
       string,
       {
         model: string;
-        vendor: string;
+        vendor: string; // 首个 vendor（用于兜底显示）
+        vendors: Set<string>; // 所有 vendor（用于 pricing 查找）
         isAvailable: boolean;
         lastVerifiedAt: Date;
         capabilities: string[];
@@ -281,11 +292,14 @@ export class AvailableModelService {
       const pk = providerKeyMap.get(availability.providerKeyId);
       if (!pk) continue;
 
-      const key = `${pk.vendor}:${availability.model}`;
+      const key = availability.model;
       const existing = modelAggregation.get(key);
 
-      // 获取该 ModelAvailability 的能力标签
-      const tags = capabilityTagsByAvailabilityId.get(availability.id) || [];
+      // 获取该模型的能力标签（通过 ModelCatalog）
+      const catalog = catalogByModel.get(availability.model);
+      const tags = catalog
+        ? capabilityTagsByCatalogId.get(catalog.id) || []
+        : [];
 
       if (existing) {
         // 聚合：如果任一 Provider 可用，则模型可用
@@ -302,6 +316,8 @@ export class AvailableModelService {
             existing.capabilities.push(tag);
           }
         }
+        // 记录 vendor
+        existing.vendors.add(pk.vendor);
         // 添加 Provider 信息
         if (
           includeProviderInfo &&
@@ -320,6 +336,7 @@ export class AvailableModelService {
         modelAggregation.set(key, {
           model: availability.model,
           vendor: pk.vendor,
+          vendors: new Set([pk.vendor]),
           isAvailable: availability.isAvailable,
           lastVerifiedAt: availability.lastVerifiedAt,
           capabilities: [...tags],
@@ -339,9 +356,13 @@ export class AvailableModelService {
     // 6. 构建最终模型列表
     const models: AvailableModel[] = [];
 
-    for (const [key, aggregated] of modelAggregation) {
-      // 从 ModelPricing 获取补充信息
-      const pricing = pricingMap.get(key);
+    for (const [, aggregated] of modelAggregation) {
+      // 从 ModelCatalog 获取补充信息（尝试所有 vendor）
+      let pricing: (typeof pricingList)[number] | undefined;
+      for (const v of aggregated.vendors) {
+        pricing = pricingMap.get(`${v}:${aggregated.model}`);
+        if (pricing) break;
+      }
 
       // 获取能力标签，如果没有则使用 fallback
       const capabilities =
@@ -555,7 +576,12 @@ export class AvailableModelService {
       isAvailable: boolean;
       lastVerifiedAt: Date;
       errorMessage: string | null;
-      providerKeys: Array<{ id: string; vendor: string; apiType: string; label: string | null }>;
+      providerKeys: Array<{
+        id: string;
+        vendor: string;
+        apiType: string;
+        label: string | null;
+      }>;
     };
     pricing: {
       id: string;
@@ -575,7 +601,7 @@ export class AvailableModelService {
     } | null;
     capabilityTags: Array<{
       id: string;
-      modelAvailabilityId: string;
+      modelCatalogId: string;
       capabilityTagId: string;
       tagId: string;
       matchSource: 'pattern' | 'feature' | 'scenario' | 'manual';
@@ -601,11 +627,11 @@ export class AvailableModelService {
       return null;
     }
 
-    // 2. 获取关联的 ModelPricing
+    // 2. 获取关联的 ModelCatalog
     let pricing = null;
-    if (availability.modelPricingId) {
-      const pricingRecord = await this.modelPricingService.get({
-        id: availability.modelPricingId,
+    if (availability.modelCatalogId) {
+      const pricingRecord = await this.modelCatalogService.get({
+        id: availability.modelCatalogId,
       });
       if (pricingRecord) {
         pricing = {
@@ -627,14 +653,15 @@ export class AvailableModelService {
       }
     }
 
-    // 3. 获取能力标签
+    // 3. 获取能力标签（通过 ModelCatalog）
+    const modelCatalogId = availability.modelCatalogId;
     const { list: tagRecords } = await this.modelCapabilityTagService.list(
-      { modelAvailabilityId },
+      modelCatalogId ? { modelCatalogId } : { modelCatalogId: '__none__' },
       { limit: 100 },
       {
         select: {
           id: true,
-          modelAvailabilityId: true,
+          modelCatalogId: true,
           capabilityTagId: true,
           matchSource: true,
           confidence: true,
@@ -646,7 +673,7 @@ export class AvailableModelService {
 
     const capabilityTags = tagRecords.map((tag) => ({
       id: tag.id,
-      modelAvailabilityId: tag.modelAvailabilityId,
+      modelCatalogId: tag.modelCatalogId,
       capabilityTagId: tag.capabilityTagId,
       tagId:
         (tag as { capabilityTag?: { tagId: string } }).capabilityTag?.tagId ||
@@ -781,11 +808,14 @@ export class AvailableModelService {
       addedModelIds.push(availability.model);
     }
 
-    this.logger.info('[AvailableModel] Added models to bot by availability IDs', {
-      botId,
-      modelAvailabilityIds,
-      addedModelIds,
-    });
+    this.logger.info(
+      '[AvailableModel] Added models to bot by availability IDs',
+      {
+        botId,
+        modelAvailabilityIds,
+        addedModelIds,
+      },
+    );
 
     return { added: addedModelIds.length, modelIds: addedModelIds };
   }
@@ -811,19 +841,20 @@ export class AvailableModelService {
       modelId: availability.model,
     });
     if (!botModel) {
-      throw new Error(
-        `Model ${availability.model} not found in bot ${botId}`,
-      );
+      throw new Error(`Model ${availability.model} not found in bot ${botId}`);
     }
 
     // 3. 删除模型
     await this.botModelService.delete({ id: botModel.id });
 
-    this.logger.info('[AvailableModel] Removed model from bot by availability ID', {
-      botId,
-      modelAvailabilityId,
-      modelId: availability.model,
-    });
+    this.logger.info(
+      '[AvailableModel] Removed model from bot by availability ID',
+      {
+        botId,
+        modelAvailabilityId,
+        modelId: availability.model,
+      },
+    );
 
     return { success: true };
   }

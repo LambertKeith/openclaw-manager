@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import type { ModelType } from './prisma-enums.generated';
 
 // ============================================================================
@@ -118,11 +119,6 @@ export const ProviderCategorySchema = z.enum([
 ]);
 
 export type ProviderCategory = z.infer<typeof ProviderCategorySchema>;
-
-// ============================================================================
-// Model Type Schema - 模型类型 (Dify-style)
-// Defined in prisma-enums.generated (uses @map values from Prisma schema)
-// ============================================================================
 
 // ============================================================================
 // Credential Form Schema - 凭证表单配置 (Dify-style)
@@ -625,6 +621,24 @@ export const PROVIDER_CONFIGS: Record<ProviderVendor, ProviderConfig> = {
     apiType: 'openai',
     category: 'domestic',
     apiHost: 'https://api.minimaxi.com/v1',
+    description:
+      'MiniMax 提供 abab 系列大语言模型。新版 API (api.minimaxi.com) 无需 Group ID；旧版 API (api.minimax.chat) 需要填写 Group ID',
+    credentialFormSchemas: [
+      {
+        variable: 'api_key',
+        label: 'API Key',
+        type: 'secret-input',
+        required: true,
+        placeholder: 'eyJh...',
+      },
+      {
+        variable: 'group_id',
+        label: 'Group ID',
+        type: 'text-input',
+        required: false,
+        placeholder: '如使用旧版 API (api.minimax.chat) 则需填写',
+      },
+    ],
     websites: {
       official: 'https://platform.minimaxi.com/',
       apiKey:

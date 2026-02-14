@@ -4,7 +4,7 @@ import { Logger } from 'winston';
 import {
   ProviderKeyService,
   ModelAvailabilityService,
-  ModelPricingService,
+  ModelCatalogService,
 } from '@app/db';
 import { EncryptionService } from './encryption.service';
 import { CapabilityTagMatchingService } from './capability-tag-matching.service';
@@ -121,10 +121,22 @@ export class ModelVerificationService {
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
     private readonly providerKeyService: ProviderKeyService,
     private readonly modelAvailabilityService: ModelAvailabilityService,
-    private readonly modelPricingService: ModelPricingService,
+    private readonly modelCatalogService: ModelCatalogService,
     private readonly encryptionService: EncryptionService,
     private readonly capabilityTagMatchingService: CapabilityTagMatchingService,
   ) {}
+
+  /**
+   * 解析 ProviderKey 的有效 baseUrl
+   * 优先使用 ProviderKey 自身的 baseUrl，否则回退到 PROVIDER_CONFIGS 中的默认 apiHost
+   */
+  private resolveEffectiveBaseUrl(
+    vendor: string,
+    baseUrl?: string | null,
+  ): string | null {
+    const providerConfig = PROVIDER_CONFIGS[vendor as ProviderVendor];
+    return baseUrl || providerConfig?.apiHost || null;
+  }
 
   /**
    * 根据模型名称推断模型类型
@@ -144,13 +156,43 @@ export class ModelVerificationService {
   }
 
   /**
-   * 判断是否需要二次验证（volces.com 的模型需要验证）
+   * 判断是否需要二次验证
+   * 国内云平台的 /models 通常会返回全量模型列表，但未开通的模型无法使用，
+   * 因此需要标记为 isAvailable=false，由用户手动验证。
    * @param baseUrl Provider 的 baseUrl
+   * @param vendor  Provider vendor 名称
    * @returns 是否需要验证
    */
-  private requiresVerification(baseUrl?: string | null): boolean {
+  private requiresVerification(
+    baseUrl?: string | null,
+    vendor?: string,
+  ): boolean {
+    // 按 vendor 判断：国内云平台需要开通模型才能使用
+    const vendorsRequiringVerification = [
+      'doubao', // 字节豆包（火山云）
+      'dashscope', // 阿里百炼
+      'hunyuan', // 腾讯混元
+      'tencent-cloud-ti', // 腾讯云 TI
+      'baidu-cloud', // 百度云千帆
+      'modelscope', // 魔搭
+      'xirang', // 天翼云息壤
+    ];
+    if (vendor && vendorsRequiringVerification.includes(vendor)) {
+      return true;
+    }
+
+    // 按 baseUrl 域名兜底判断
     if (!baseUrl) return false;
-    return baseUrl.includes('volces.com');
+    const domainsRequiringVerification = [
+      'volces.com',
+      'dashscope.aliyuncs.com',
+      'hunyuan.cloud.tencent.com',
+      'lkeap.cloud.tencent.com',
+      'qianfan.baidubce.com',
+    ];
+    return domainsRequiringVerification.some((domain) =>
+      baseUrl.includes(domain),
+    );
   }
 
   /**
@@ -346,14 +388,16 @@ export class ModelVerificationService {
     const apiKey = this.encryptionService.decrypt(Buffer.from(secretEncrypted));
     const effectiveApiType = apiType || this.inferApiType(vendor);
 
+    const effectiveBaseUrl = this.resolveEffectiveBaseUrl(vendor, baseUrl);
+
     this.logger.info(
-      `[ModelVerification] Refreshing models for provider key: vendor=${vendor}, apiType=${effectiveApiType}`,
+      `[ModelVerification] Refreshing models for provider key: vendor=${vendor}, apiType=${effectiveApiType}, baseUrl=${effectiveBaseUrl}`,
     );
 
     // 从端点获取模型列表
     const models = await this.fetchAvailableModels(
       apiKey,
-      baseUrl,
+      effectiveBaseUrl,
       effectiveApiType,
     );
 
@@ -370,16 +414,20 @@ export class ModelVerificationService {
       (r) => !models.includes(r.model),
     );
 
-    // 判断是否需要二次验证（volces.com 的模型需要验证，其他默认可用）
-    const needsVerification = this.requiresVerification(baseUrl);
+    // 判断是否需要二次验证（火山云、阿里云百炼等需要开通的平台）
+    const needsVerification = this.requiresVerification(
+      effectiveBaseUrl,
+      vendor,
+    );
 
     // 添加新模型
-    const createdModelAvailabilities: Array<{ id: string; model: string }> = [];
+    const createdModelCatalogs: Array<{ catalogId: string; model: string }> =
+      [];
     for (const model of newModels) {
       const modelType = this.classifyModelType(model);
 
-      // 查找对应的 ModelPricing 记录
-      const pricing = await this.modelPricingService.getByModel(model);
+      // 查找对应的 ModelCatalog 记录
+      const catalog = await this.modelCatalogService.getByModel(model);
 
       const created = await this.modelAvailabilityService.create({
         model,
@@ -389,18 +437,23 @@ export class ModelVerificationService {
         isAvailable: !needsVerification,
         lastVerifiedAt: needsVerification ? new Date(0) : new Date(),
         errorMessage: needsVerification ? 'Not verified yet' : null,
-        // 关联 ModelPricing（如果存在）
-        ...(pricing ? { modelPricing: { connect: { id: pricing.id } } } : {}),
+        // 关联 ModelCatalog（如果存在）
+        ...(catalog ? { modelCatalog: { connect: { id: catalog.id } } } : {}),
       });
 
-      createdModelAvailabilities.push({ id: created.id, model: created.model });
+      if (catalog) {
+        createdModelCatalogs.push({
+          catalogId: catalog.id,
+          model: created.model,
+        });
+      }
     }
 
-    // 为新创建的 ModelAvailability 分配能力标签
-    for (const { id, model } of createdModelAvailabilities) {
+    // 为新关联的 ModelCatalog 分配能力标签
+    for (const { catalogId, model } of createdModelCatalogs) {
       try {
-        await this.capabilityTagMatchingService.assignTagsToModelAvailability(
-          id,
+        await this.capabilityTagMatchingService.assignTagsToModelCatalog(
+          catalogId,
           model,
           vendor,
         );
@@ -444,6 +497,8 @@ export class ModelVerificationService {
     const apiKey = this.encryptionService.decrypt(Buffer.from(secretEncrypted));
     const effectiveApiType = apiType || this.inferApiType(vendor);
 
+    const effectiveBaseUrl = this.resolveEffectiveBaseUrl(vendor, baseUrl);
+
     this.logger.info(
       `[ModelVerification] Verifying single model: ${model}, vendor=${vendor}, apiType=${effectiveApiType}`,
     );
@@ -452,7 +507,7 @@ export class ModelVerificationService {
       effectiveApiType,
       model,
       apiKey,
-      baseUrl,
+      effectiveBaseUrl,
     );
 
     // 更新数据库记录
@@ -467,8 +522,8 @@ export class ModelVerificationService {
   }
 
   /**
-   * 批量验证未验证的模型（增量验证）
-   * 只验证 errorMessage 为 'Not verified yet' 的模型
+   * 批量验证模型（强制验证）
+   * 验证该 providerKey 下的所有模型，无论当前状态
    */
   async batchVerifyUnverified(
     providerKeyId: string,
@@ -482,18 +537,19 @@ export class ModelVerificationService {
     const apiKey = this.encryptionService.decrypt(Buffer.from(secretEncrypted));
     const effectiveApiType = apiType || this.inferApiType(vendor);
 
-    // 获取所有未验证的模型
+    const effectiveBaseUrl = this.resolveEffectiveBaseUrl(vendor, baseUrl);
+
+    // 获取该 providerKey 下的所有模型，强制重新验证
     const { list: unverifiedRecords } =
       await this.modelAvailabilityService.list(
         {
           providerKeyId,
-          errorMessage: 'Not verified yet',
         },
         { limit: 1000 },
       );
 
     this.logger.info(
-      `[ModelVerification] Batch verifying ${unverifiedRecords.length} unverified models for provider key: ${providerKeyId}`,
+      `[ModelVerification] Batch verifying ${unverifiedRecords.length} models for provider key: ${providerKeyId}`,
     );
 
     const results: ModelVerificationResult[] = [];
@@ -505,7 +561,7 @@ export class ModelVerificationService {
         effectiveApiType,
         record.model,
         apiKey,
-        baseUrl,
+        effectiveBaseUrl,
       );
 
       // 更新数据库记录
@@ -553,7 +609,7 @@ export class ModelVerificationService {
       isAvailable: boolean;
       lastVerifiedAt: Date;
       errorMessage: string | null;
-      modelPricingId: string | null;
+      modelCatalogId: string | null;
       capabilityTags: Array<{ id: string; name: string }>;
       providerKeys: Array<{
         id: string;
@@ -570,7 +626,7 @@ export class ModelVerificationService {
       {
         include: {
           providerKey: true,
-          modelPricing: true,
+          modelCatalog: true,
           capabilityTags: {
             include: {
               capabilityTag: true,
@@ -591,7 +647,7 @@ export class ModelVerificationService {
       isAvailable: item.isAvailable,
       lastVerifiedAt: item.lastVerifiedAt,
       errorMessage: item.errorMessage,
-      modelPricingId: item.modelPricingId,
+      modelCatalogId: item.modelCatalogId,
       capabilityTags:
         item.capabilityTags?.map((mct: any) => ({
           id: mct.capabilityTag?.id ?? mct.capabilityTagId,
