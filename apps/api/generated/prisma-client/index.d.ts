@@ -22237,7 +22237,7 @@ export namespace Prisma {
     id: string
     model: string
     providerKeyId: string
-    modelCatalogId: string | null
+    modelCatalogId: string
     modelType: $Enums.ModelType
     isAvailable: boolean
     lastVerifiedAt: Date
@@ -22281,7 +22281,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     providerKey?: boolean | ProviderKeyDefaultArgs<ExtArgs>
-    modelCatalog?: boolean | ModelAvailability$modelCatalogArgs<ExtArgs>
+    modelCatalog?: boolean | ModelCatalogDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["modelAvailability"]>
 
   export type ModelAvailabilitySelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -22298,7 +22298,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     providerKey?: boolean | ProviderKeyDefaultArgs<ExtArgs>
-    modelCatalog?: boolean | ModelAvailability$modelCatalogArgs<ExtArgs>
+    modelCatalog?: boolean | ModelCatalogDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["modelAvailability"]>
 
   export type ModelAvailabilitySelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -22315,7 +22315,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     providerKey?: boolean | ProviderKeyDefaultArgs<ExtArgs>
-    modelCatalog?: boolean | ModelAvailability$modelCatalogArgs<ExtArgs>
+    modelCatalog?: boolean | ModelCatalogDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["modelAvailability"]>
 
   export type ModelAvailabilitySelectScalar = {
@@ -22336,27 +22336,27 @@ export namespace Prisma {
   export type ModelAvailabilityOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "model" | "providerKeyId" | "modelCatalogId" | "modelType" | "isAvailable" | "lastVerifiedAt" | "errorMessage" | "vendorPriority" | "healthScore" | "createdAt" | "updatedAt", ExtArgs["result"]["modelAvailability"]>
   export type ModelAvailabilityInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     providerKey?: boolean | ProviderKeyDefaultArgs<ExtArgs>
-    modelCatalog?: boolean | ModelAvailability$modelCatalogArgs<ExtArgs>
+    modelCatalog?: boolean | ModelCatalogDefaultArgs<ExtArgs>
   }
   export type ModelAvailabilityIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     providerKey?: boolean | ProviderKeyDefaultArgs<ExtArgs>
-    modelCatalog?: boolean | ModelAvailability$modelCatalogArgs<ExtArgs>
+    modelCatalog?: boolean | ModelCatalogDefaultArgs<ExtArgs>
   }
   export type ModelAvailabilityIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     providerKey?: boolean | ProviderKeyDefaultArgs<ExtArgs>
-    modelCatalog?: boolean | ModelAvailability$modelCatalogArgs<ExtArgs>
+    modelCatalog?: boolean | ModelCatalogDefaultArgs<ExtArgs>
   }
 
   export type $ModelAvailabilityPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "ModelAvailability"
     objects: {
       providerKey: Prisma.$ProviderKeyPayload<ExtArgs>
-      modelCatalog: Prisma.$ModelCatalogPayload<ExtArgs> | null
+      modelCatalog: Prisma.$ModelCatalogPayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
       /**
-       * 模型标识符，如 "gpt-4o", "claude-sonnet-4-20250514"
+       * 模型标识符，如 "gpt-4o", "claude-sonnet-4-20250514"（反范式化冗余，与 ModelCatalog.model 一致）
        */
       model: string
       /**
@@ -22364,9 +22364,9 @@ export namespace Prisma {
        */
       providerKeyId: string
       /**
-       * 关联的 ModelCatalog ID（建立正式外键关联）
+       * 关联的 ModelCatalog ID（必填，模型发现时自动创建 catalog）
        */
-      modelCatalogId: string | null
+      modelCatalogId: string
       /**
        * 模型类型（llm, image, video, tts, embedding 等）
        */
@@ -22788,7 +22788,7 @@ export namespace Prisma {
   export interface Prisma__ModelAvailabilityClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     providerKey<T extends ProviderKeyDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ProviderKeyDefaultArgs<ExtArgs>>): Prisma__ProviderKeyClient<$Result.GetResult<Prisma.$ProviderKeyPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    modelCatalog<T extends ModelAvailability$modelCatalogArgs<ExtArgs> = {}>(args?: Subset<T, ModelAvailability$modelCatalogArgs<ExtArgs>>): Prisma__ModelCatalogClient<$Result.GetResult<Prisma.$ModelCatalogPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    modelCatalog<T extends ModelCatalogDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ModelCatalogDefaultArgs<ExtArgs>>): Prisma__ModelCatalogClient<$Result.GetResult<Prisma.$ModelCatalogPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -23223,25 +23223,6 @@ export namespace Prisma {
      * Limit how many ModelAvailabilities to delete.
      */
     limit?: number
-  }
-
-  /**
-   * ModelAvailability.modelCatalog
-   */
-  export type ModelAvailability$modelCatalogArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the ModelCatalog
-     */
-    select?: ModelCatalogSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the ModelCatalog
-     */
-    omit?: ModelCatalogOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: ModelCatalogInclude<ExtArgs> | null
-    where?: ModelCatalogWhereInput
   }
 
   /**
@@ -36416,8 +36397,18 @@ export namespace Prisma {
 
   export type AggregateSkill = {
     _count: SkillCountAggregateOutputType | null
+    _avg: SkillAvgAggregateOutputType | null
+    _sum: SkillSumAggregateOutputType | null
     _min: SkillMinAggregateOutputType | null
     _max: SkillMaxAggregateOutputType | null
+  }
+
+  export type SkillAvgAggregateOutputType = {
+    fileCount: number | null
+  }
+
+  export type SkillSumAggregateOutputType = {
+    fileCount: number | null
   }
 
   export type SkillMinAggregateOutputType = {
@@ -36437,6 +36428,10 @@ export namespace Prisma {
     sourceUrl: string | null
     author: string | null
     lastSyncedAt: Date | null
+    filesSyncedAt: Date | null
+    fileCount: number | null
+    hasInitScript: boolean | null
+    hasReferences: boolean | null
     isDeleted: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -36460,6 +36455,10 @@ export namespace Prisma {
     sourceUrl: string | null
     author: string | null
     lastSyncedAt: Date | null
+    filesSyncedAt: Date | null
+    fileCount: number | null
+    hasInitScript: boolean | null
+    hasReferences: boolean | null
     isDeleted: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -36485,6 +36484,11 @@ export namespace Prisma {
     sourceUrl: number
     author: number
     lastSyncedAt: number
+    files: number
+    filesSyncedAt: number
+    fileCount: number
+    hasInitScript: number
+    hasReferences: number
     isDeleted: number
     createdAt: number
     updatedAt: number
@@ -36492,6 +36496,14 @@ export namespace Prisma {
     _all: number
   }
 
+
+  export type SkillAvgAggregateInputType = {
+    fileCount?: true
+  }
+
+  export type SkillSumAggregateInputType = {
+    fileCount?: true
+  }
 
   export type SkillMinAggregateInputType = {
     id?: true
@@ -36510,6 +36522,10 @@ export namespace Prisma {
     sourceUrl?: true
     author?: true
     lastSyncedAt?: true
+    filesSyncedAt?: true
+    fileCount?: true
+    hasInitScript?: true
+    hasReferences?: true
     isDeleted?: true
     createdAt?: true
     updatedAt?: true
@@ -36533,6 +36549,10 @@ export namespace Prisma {
     sourceUrl?: true
     author?: true
     lastSyncedAt?: true
+    filesSyncedAt?: true
+    fileCount?: true
+    hasInitScript?: true
+    hasReferences?: true
     isDeleted?: true
     createdAt?: true
     updatedAt?: true
@@ -36558,6 +36578,11 @@ export namespace Prisma {
     sourceUrl?: true
     author?: true
     lastSyncedAt?: true
+    files?: true
+    filesSyncedAt?: true
+    fileCount?: true
+    hasInitScript?: true
+    hasReferences?: true
     isDeleted?: true
     createdAt?: true
     updatedAt?: true
@@ -36603,6 +36628,18 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
+     * Select which fields to average
+    **/
+    _avg?: SkillAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: SkillSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
      * Select which fields to find the minimum value
     **/
     _min?: SkillMinAggregateInputType
@@ -36633,6 +36670,8 @@ export namespace Prisma {
     take?: number
     skip?: number
     _count?: SkillCountAggregateInputType | true
+    _avg?: SkillAvgAggregateInputType
+    _sum?: SkillSumAggregateInputType
     _min?: SkillMinAggregateInputType
     _max?: SkillMaxAggregateInputType
   }
@@ -36656,11 +36695,18 @@ export namespace Prisma {
     sourceUrl: string | null
     author: string | null
     lastSyncedAt: Date | null
+    files: JsonValue | null
+    filesSyncedAt: Date | null
+    fileCount: number | null
+    hasInitScript: boolean
+    hasReferences: boolean
     isDeleted: boolean
     createdAt: Date
     updatedAt: Date
     deletedAt: Date | null
     _count: SkillCountAggregateOutputType | null
+    _avg: SkillAvgAggregateOutputType | null
+    _sum: SkillSumAggregateOutputType | null
     _min: SkillMinAggregateOutputType | null
     _max: SkillMaxAggregateOutputType | null
   }
@@ -36698,6 +36744,11 @@ export namespace Prisma {
     sourceUrl?: boolean
     author?: boolean
     lastSyncedAt?: boolean
+    files?: boolean
+    filesSyncedAt?: boolean
+    fileCount?: boolean
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -36726,6 +36777,11 @@ export namespace Prisma {
     sourceUrl?: boolean
     author?: boolean
     lastSyncedAt?: boolean
+    files?: boolean
+    filesSyncedAt?: boolean
+    fileCount?: boolean
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -36752,6 +36808,11 @@ export namespace Prisma {
     sourceUrl?: boolean
     author?: boolean
     lastSyncedAt?: boolean
+    files?: boolean
+    filesSyncedAt?: boolean
+    fileCount?: boolean
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -36778,13 +36839,18 @@ export namespace Prisma {
     sourceUrl?: boolean
     author?: boolean
     lastSyncedAt?: boolean
+    files?: boolean
+    filesSyncedAt?: boolean
+    fileCount?: boolean
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     deletedAt?: boolean
   }
 
-  export type SkillOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "nameZh" | "slug" | "description" | "descriptionZh" | "version" | "latestVersion" | "skillTypeId" | "definition" | "examples" | "isSystem" | "isEnabled" | "createdById" | "source" | "sourceUrl" | "author" | "lastSyncedAt" | "isDeleted" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["skill"]>
+  export type SkillOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "nameZh" | "slug" | "description" | "descriptionZh" | "version" | "latestVersion" | "skillTypeId" | "definition" | "examples" | "isSystem" | "isEnabled" | "createdById" | "source" | "sourceUrl" | "author" | "lastSyncedAt" | "files" | "filesSyncedAt" | "fileCount" | "hasInitScript" | "hasReferences" | "isDeleted" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["skill"]>
   export type SkillInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     skillType?: boolean | Skill$skillTypeArgs<ExtArgs>
     installations?: boolean | Skill$installationsArgs<ExtArgs>
@@ -36843,9 +36909,30 @@ export namespace Prisma {
        */
       author: string | null
       /**
-       * 最后同步时间
+       * 最后同步时间（元数据同步）
        */
       lastSyncedAt: Date | null
+      /**
+       * 完整的技能文件目录（从 GitHub 预同步）
+       * 格式: [{ relativePath: string, content: string, size: number }]
+       */
+      files: Prisma.JsonValue | null
+      /**
+       * 文件目录同步时间
+       */
+      filesSyncedAt: Date | null
+      /**
+       * 文件数量
+       */
+      fileCount: number | null
+      /**
+       * 是否包含初始化脚本 (scripts/init.sh)
+       */
+      hasInitScript: boolean
+      /**
+       * 是否包含参考文档 (references/)
+       */
+      hasReferences: boolean
       isDeleted: boolean
       createdAt: Date
       updatedAt: Date
@@ -37293,6 +37380,11 @@ export namespace Prisma {
     readonly sourceUrl: FieldRef<"Skill", 'String'>
     readonly author: FieldRef<"Skill", 'String'>
     readonly lastSyncedAt: FieldRef<"Skill", 'DateTime'>
+    readonly files: FieldRef<"Skill", 'Json'>
+    readonly filesSyncedAt: FieldRef<"Skill", 'DateTime'>
+    readonly fileCount: FieldRef<"Skill", 'Int'>
+    readonly hasInitScript: FieldRef<"Skill", 'Boolean'>
+    readonly hasReferences: FieldRef<"Skill", 'Boolean'>
     readonly isDeleted: FieldRef<"Skill", 'Boolean'>
     readonly createdAt: FieldRef<"Skill", 'DateTime'>
     readonly updatedAt: FieldRef<"Skill", 'DateTime'>
@@ -52095,6 +52187,11 @@ export namespace Prisma {
     sourceUrl: 'sourceUrl',
     author: 'author',
     lastSyncedAt: 'lastSyncedAt',
+    files: 'files',
+    filesSyncedAt: 'filesSyncedAt',
+    fileCount: 'fileCount',
+    hasInitScript: 'hasInitScript',
+    hasReferences: 'hasReferences',
     isDeleted: 'isDeleted',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
@@ -54058,7 +54155,7 @@ export namespace Prisma {
     id?: UuidFilter<"ModelAvailability"> | string
     model?: StringFilter<"ModelAvailability"> | string
     providerKeyId?: UuidFilter<"ModelAvailability"> | string
-    modelCatalogId?: UuidNullableFilter<"ModelAvailability"> | string | null
+    modelCatalogId?: UuidFilter<"ModelAvailability"> | string
     modelType?: EnumModelTypeFilter<"ModelAvailability"> | $Enums.ModelType
     isAvailable?: BoolFilter<"ModelAvailability"> | boolean
     lastVerifiedAt?: DateTimeFilter<"ModelAvailability"> | Date | string
@@ -54068,14 +54165,14 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"ModelAvailability"> | Date | string
     updatedAt?: DateTimeFilter<"ModelAvailability"> | Date | string
     providerKey?: XOR<ProviderKeyScalarRelationFilter, ProviderKeyWhereInput>
-    modelCatalog?: XOR<ModelCatalogNullableScalarRelationFilter, ModelCatalogWhereInput> | null
+    modelCatalog?: XOR<ModelCatalogScalarRelationFilter, ModelCatalogWhereInput>
   }
 
   export type ModelAvailabilityOrderByWithRelationInput = {
     id?: SortOrder
     model?: SortOrder
     providerKeyId?: SortOrder
-    modelCatalogId?: SortOrderInput | SortOrder
+    modelCatalogId?: SortOrder
     modelType?: SortOrder
     isAvailable?: SortOrder
     lastVerifiedAt?: SortOrder
@@ -54096,7 +54193,7 @@ export namespace Prisma {
     NOT?: ModelAvailabilityWhereInput | ModelAvailabilityWhereInput[]
     model?: StringFilter<"ModelAvailability"> | string
     providerKeyId?: UuidFilter<"ModelAvailability"> | string
-    modelCatalogId?: UuidNullableFilter<"ModelAvailability"> | string | null
+    modelCatalogId?: UuidFilter<"ModelAvailability"> | string
     modelType?: EnumModelTypeFilter<"ModelAvailability"> | $Enums.ModelType
     isAvailable?: BoolFilter<"ModelAvailability"> | boolean
     lastVerifiedAt?: DateTimeFilter<"ModelAvailability"> | Date | string
@@ -54106,14 +54203,14 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"ModelAvailability"> | Date | string
     updatedAt?: DateTimeFilter<"ModelAvailability"> | Date | string
     providerKey?: XOR<ProviderKeyScalarRelationFilter, ProviderKeyWhereInput>
-    modelCatalog?: XOR<ModelCatalogNullableScalarRelationFilter, ModelCatalogWhereInput> | null
+    modelCatalog?: XOR<ModelCatalogScalarRelationFilter, ModelCatalogWhereInput>
   }, "id" | "providerKeyId_model">
 
   export type ModelAvailabilityOrderByWithAggregationInput = {
     id?: SortOrder
     model?: SortOrder
     providerKeyId?: SortOrder
-    modelCatalogId?: SortOrderInput | SortOrder
+    modelCatalogId?: SortOrder
     modelType?: SortOrder
     isAvailable?: SortOrder
     lastVerifiedAt?: SortOrder
@@ -54136,7 +54233,7 @@ export namespace Prisma {
     id?: UuidWithAggregatesFilter<"ModelAvailability"> | string
     model?: StringWithAggregatesFilter<"ModelAvailability"> | string
     providerKeyId?: UuidWithAggregatesFilter<"ModelAvailability"> | string
-    modelCatalogId?: UuidNullableWithAggregatesFilter<"ModelAvailability"> | string | null
+    modelCatalogId?: UuidWithAggregatesFilter<"ModelAvailability"> | string
     modelType?: EnumModelTypeWithAggregatesFilter<"ModelAvailability"> | $Enums.ModelType
     isAvailable?: BoolWithAggregatesFilter<"ModelAvailability"> | boolean
     lastVerifiedAt?: DateTimeWithAggregatesFilter<"ModelAvailability"> | Date | string
@@ -55213,6 +55310,11 @@ export namespace Prisma {
     sourceUrl?: StringNullableFilter<"Skill"> | string | null
     author?: StringNullableFilter<"Skill"> | string | null
     lastSyncedAt?: DateTimeNullableFilter<"Skill"> | Date | string | null
+    files?: JsonNullableFilter<"Skill">
+    filesSyncedAt?: DateTimeNullableFilter<"Skill"> | Date | string | null
+    fileCount?: IntNullableFilter<"Skill"> | number | null
+    hasInitScript?: BoolFilter<"Skill"> | boolean
+    hasReferences?: BoolFilter<"Skill"> | boolean
     isDeleted?: BoolFilter<"Skill"> | boolean
     createdAt?: DateTimeFilter<"Skill"> | Date | string
     updatedAt?: DateTimeFilter<"Skill"> | Date | string
@@ -55240,6 +55342,11 @@ export namespace Prisma {
     sourceUrl?: SortOrderInput | SortOrder
     author?: SortOrderInput | SortOrder
     lastSyncedAt?: SortOrderInput | SortOrder
+    files?: SortOrderInput | SortOrder
+    filesSyncedAt?: SortOrderInput | SortOrder
+    fileCount?: SortOrderInput | SortOrder
+    hasInitScript?: SortOrder
+    hasReferences?: SortOrder
     isDeleted?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -55272,6 +55379,11 @@ export namespace Prisma {
     sourceUrl?: StringNullableFilter<"Skill"> | string | null
     author?: StringNullableFilter<"Skill"> | string | null
     lastSyncedAt?: DateTimeNullableFilter<"Skill"> | Date | string | null
+    files?: JsonNullableFilter<"Skill">
+    filesSyncedAt?: DateTimeNullableFilter<"Skill"> | Date | string | null
+    fileCount?: IntNullableFilter<"Skill"> | number | null
+    hasInitScript?: BoolFilter<"Skill"> | boolean
+    hasReferences?: BoolFilter<"Skill"> | boolean
     isDeleted?: BoolFilter<"Skill"> | boolean
     createdAt?: DateTimeFilter<"Skill"> | Date | string
     updatedAt?: DateTimeFilter<"Skill"> | Date | string
@@ -55299,13 +55411,20 @@ export namespace Prisma {
     sourceUrl?: SortOrderInput | SortOrder
     author?: SortOrderInput | SortOrder
     lastSyncedAt?: SortOrderInput | SortOrder
+    files?: SortOrderInput | SortOrder
+    filesSyncedAt?: SortOrderInput | SortOrder
+    fileCount?: SortOrderInput | SortOrder
+    hasInitScript?: SortOrder
+    hasReferences?: SortOrder
     isDeleted?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrderInput | SortOrder
     _count?: SkillCountOrderByAggregateInput
+    _avg?: SkillAvgOrderByAggregateInput
     _max?: SkillMaxOrderByAggregateInput
     _min?: SkillMinOrderByAggregateInput
+    _sum?: SkillSumOrderByAggregateInput
   }
 
   export type SkillScalarWhereWithAggregatesInput = {
@@ -55330,6 +55449,11 @@ export namespace Prisma {
     sourceUrl?: StringNullableWithAggregatesFilter<"Skill"> | string | null
     author?: StringNullableWithAggregatesFilter<"Skill"> | string | null
     lastSyncedAt?: DateTimeNullableWithAggregatesFilter<"Skill"> | Date | string | null
+    files?: JsonNullableWithAggregatesFilter<"Skill">
+    filesSyncedAt?: DateTimeNullableWithAggregatesFilter<"Skill"> | Date | string | null
+    fileCount?: IntNullableWithAggregatesFilter<"Skill"> | number | null
+    hasInitScript?: BoolWithAggregatesFilter<"Skill"> | boolean
+    hasReferences?: BoolWithAggregatesFilter<"Skill"> | boolean
     isDeleted?: BoolWithAggregatesFilter<"Skill"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"Skill"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Skill"> | Date | string
@@ -58136,14 +58260,14 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     providerKey: ProviderKeyCreateNestedOneWithoutModelAvailabilityInput
-    modelCatalog?: ModelCatalogCreateNestedOneWithoutAvailabilitiesInput
+    modelCatalog: ModelCatalogCreateNestedOneWithoutAvailabilitiesInput
   }
 
   export type ModelAvailabilityUncheckedCreateInput = {
     id?: string
     model: string
     providerKeyId: string
-    modelCatalogId?: string | null
+    modelCatalogId: string
     modelType?: $Enums.ModelType
     isAvailable?: boolean
     lastVerifiedAt: Date | string
@@ -58166,14 +58290,14 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     providerKey?: ProviderKeyUpdateOneRequiredWithoutModelAvailabilityNestedInput
-    modelCatalog?: ModelCatalogUpdateOneWithoutAvailabilitiesNestedInput
+    modelCatalog?: ModelCatalogUpdateOneRequiredWithoutAvailabilitiesNestedInput
   }
 
   export type ModelAvailabilityUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     model?: StringFieldUpdateOperationsInput | string
     providerKeyId?: StringFieldUpdateOperationsInput | string
-    modelCatalogId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCatalogId?: StringFieldUpdateOperationsInput | string
     modelType?: EnumModelTypeFieldUpdateOperationsInput | $Enums.ModelType
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     lastVerifiedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -58188,7 +58312,7 @@ export namespace Prisma {
     id?: string
     model: string
     providerKeyId: string
-    modelCatalogId?: string | null
+    modelCatalogId: string
     modelType?: $Enums.ModelType
     isAvailable?: boolean
     lastVerifiedAt: Date | string
@@ -58216,7 +58340,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     model?: StringFieldUpdateOperationsInput | string
     providerKeyId?: StringFieldUpdateOperationsInput | string
-    modelCatalogId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCatalogId?: StringFieldUpdateOperationsInput | string
     modelType?: EnumModelTypeFieldUpdateOperationsInput | $Enums.ModelType
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     lastVerifiedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59431,6 +59555,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -59458,6 +59587,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -59483,6 +59617,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59510,6 +59649,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59536,6 +59680,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -59560,6 +59709,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59585,6 +59739,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62382,9 +62541,9 @@ export namespace Prisma {
     isNot?: ProviderKeyWhereInput
   }
 
-  export type ModelCatalogNullableScalarRelationFilter = {
-    is?: ModelCatalogWhereInput | null
-    isNot?: ModelCatalogWhereInput | null
+  export type ModelCatalogScalarRelationFilter = {
+    is?: ModelCatalogWhereInput
+    isNot?: ModelCatalogWhereInput
   }
 
   export type ModelAvailabilityProviderKeyIdModelCompoundUniqueInput = {
@@ -62455,11 +62614,6 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumModelTypeFilter<$PrismaModel>
     _max?: NestedEnumModelTypeFilter<$PrismaModel>
-  }
-
-  export type ModelCatalogScalarRelationFilter = {
-    is?: ModelCatalogWhereInput
-    isNot?: ModelCatalogWhereInput
   }
 
   export type CapabilityTagScalarRelationFilter = {
@@ -63262,10 +63416,19 @@ export namespace Prisma {
     sourceUrl?: SortOrder
     author?: SortOrder
     lastSyncedAt?: SortOrder
+    files?: SortOrder
+    filesSyncedAt?: SortOrder
+    fileCount?: SortOrder
+    hasInitScript?: SortOrder
+    hasReferences?: SortOrder
     isDeleted?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrder
+  }
+
+  export type SkillAvgOrderByAggregateInput = {
+    fileCount?: SortOrder
   }
 
   export type SkillMaxOrderByAggregateInput = {
@@ -63285,6 +63448,10 @@ export namespace Prisma {
     sourceUrl?: SortOrder
     author?: SortOrder
     lastSyncedAt?: SortOrder
+    filesSyncedAt?: SortOrder
+    fileCount?: SortOrder
+    hasInitScript?: SortOrder
+    hasReferences?: SortOrder
     isDeleted?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -63308,10 +63475,18 @@ export namespace Prisma {
     sourceUrl?: SortOrder
     author?: SortOrder
     lastSyncedAt?: SortOrder
+    filesSyncedAt?: SortOrder
+    fileCount?: SortOrder
+    hasInitScript?: SortOrder
+    hasReferences?: SortOrder
     isDeleted?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrder
+  }
+
+  export type SkillSumOrderByAggregateInput = {
+    fileCount?: SortOrder
   }
 
   export type SkillScalarRelationFilter = {
@@ -65452,12 +65627,10 @@ export namespace Prisma {
     update?: XOR<XOR<ProviderKeyUpdateToOneWithWhereWithoutModelAvailabilityInput, ProviderKeyUpdateWithoutModelAvailabilityInput>, ProviderKeyUncheckedUpdateWithoutModelAvailabilityInput>
   }
 
-  export type ModelCatalogUpdateOneWithoutAvailabilitiesNestedInput = {
+  export type ModelCatalogUpdateOneRequiredWithoutAvailabilitiesNestedInput = {
     create?: XOR<ModelCatalogCreateWithoutAvailabilitiesInput, ModelCatalogUncheckedCreateWithoutAvailabilitiesInput>
     connectOrCreate?: ModelCatalogCreateOrConnectWithoutAvailabilitiesInput
     upsert?: ModelCatalogUpsertWithoutAvailabilitiesInput
-    disconnect?: ModelCatalogWhereInput | boolean
-    delete?: ModelCatalogWhereInput | boolean
     connect?: ModelCatalogWhereUniqueInput
     update?: XOR<XOR<ModelCatalogUpdateToOneWithWhereWithoutAvailabilitiesInput, ModelCatalogUpdateWithoutAvailabilitiesInput>, ModelCatalogUncheckedUpdateWithoutAvailabilitiesInput>
   }
@@ -70385,13 +70558,13 @@ export namespace Prisma {
     healthScore?: number
     createdAt?: Date | string
     updatedAt?: Date | string
-    modelCatalog?: ModelCatalogCreateNestedOneWithoutAvailabilitiesInput
+    modelCatalog: ModelCatalogCreateNestedOneWithoutAvailabilitiesInput
   }
 
   export type ModelAvailabilityUncheckedCreateWithoutProviderKeyInput = {
     id?: string
     model: string
-    modelCatalogId?: string | null
+    modelCatalogId: string
     modelType?: $Enums.ModelType
     isAvailable?: boolean
     lastVerifiedAt: Date | string
@@ -70560,7 +70733,7 @@ export namespace Prisma {
     id?: UuidFilter<"ModelAvailability"> | string
     model?: StringFilter<"ModelAvailability"> | string
     providerKeyId?: UuidFilter<"ModelAvailability"> | string
-    modelCatalogId?: UuidNullableFilter<"ModelAvailability"> | string | null
+    modelCatalogId?: UuidFilter<"ModelAvailability"> | string
     modelType?: EnumModelTypeFilter<"ModelAvailability"> | $Enums.ModelType
     isAvailable?: BoolFilter<"ModelAvailability"> | boolean
     lastVerifiedAt?: DateTimeFilter<"ModelAvailability"> | Date | string
@@ -72717,6 +72890,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -72742,6 +72920,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -72797,6 +72980,11 @@ export namespace Prisma {
     sourceUrl?: StringNullableFilter<"Skill"> | string | null
     author?: StringNullableFilter<"Skill"> | string | null
     lastSyncedAt?: DateTimeNullableFilter<"Skill"> | Date | string | null
+    files?: JsonNullableFilter<"Skill">
+    filesSyncedAt?: DateTimeNullableFilter<"Skill"> | Date | string | null
+    fileCount?: IntNullableFilter<"Skill"> | number | null
+    hasInitScript?: BoolFilter<"Skill"> | boolean
+    hasReferences?: BoolFilter<"Skill"> | boolean
     isDeleted?: BoolFilter<"Skill"> | boolean
     createdAt?: DateTimeFilter<"Skill"> | Date | string
     updatedAt?: DateTimeFilter<"Skill"> | Date | string
@@ -73016,6 +73204,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -73042,6 +73235,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -73155,6 +73353,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -73181,6 +73384,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -75627,7 +75835,7 @@ export namespace Prisma {
   export type ModelAvailabilityCreateManyProviderKeyInput = {
     id?: string
     model: string
-    modelCatalogId?: string | null
+    modelCatalogId: string
     modelType?: $Enums.ModelType
     isAvailable?: boolean
     lastVerifiedAt: Date | string
@@ -75769,13 +75977,13 @@ export namespace Prisma {
     healthScore?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    modelCatalog?: ModelCatalogUpdateOneWithoutAvailabilitiesNestedInput
+    modelCatalog?: ModelCatalogUpdateOneRequiredWithoutAvailabilitiesNestedInput
   }
 
   export type ModelAvailabilityUncheckedUpdateWithoutProviderKeyInput = {
     id?: StringFieldUpdateOperationsInput | string
     model?: StringFieldUpdateOperationsInput | string
-    modelCatalogId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCatalogId?: StringFieldUpdateOperationsInput | string
     modelType?: EnumModelTypeFieldUpdateOperationsInput | $Enums.ModelType
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     lastVerifiedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -75789,7 +75997,7 @@ export namespace Prisma {
   export type ModelAvailabilityUncheckedUpdateManyWithoutProviderKeyInput = {
     id?: StringFieldUpdateOperationsInput | string
     model?: StringFieldUpdateOperationsInput | string
-    modelCatalogId?: NullableStringFieldUpdateOperationsInput | string | null
+    modelCatalogId?: StringFieldUpdateOperationsInput | string
     modelType?: EnumModelTypeFieldUpdateOperationsInput | $Enums.ModelType
     isAvailable?: BoolFieldUpdateOperationsInput | boolean
     lastVerifiedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -75954,6 +76162,11 @@ export namespace Prisma {
     sourceUrl?: string | null
     author?: string | null
     lastSyncedAt?: Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: Date | string | null
+    fileCount?: number | null
+    hasInitScript?: boolean
+    hasReferences?: boolean
     isDeleted?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -75978,6 +76191,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -76003,6 +76221,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -76028,6 +76251,11 @@ export namespace Prisma {
     sourceUrl?: NullableStringFieldUpdateOperationsInput | string | null
     author?: NullableStringFieldUpdateOperationsInput | string | null
     lastSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    files?: NullableJsonNullValueInput | InputJsonValue
+    filesSyncedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    fileCount?: NullableIntFieldUpdateOperationsInput | number | null
+    hasInitScript?: BoolFieldUpdateOperationsInput | boolean
+    hasReferences?: BoolFieldUpdateOperationsInput | boolean
     isDeleted?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string

@@ -42,6 +42,15 @@ export interface ModelTagAssociation {
 }
 
 /**
+ * Primary model info from BotModel (isPrimary=true)
+ */
+export interface PrimaryModelInfo {
+  modelId: string;
+  providerKeyId: string;
+  vendor: string;
+}
+
+/**
  * Model capability analysis result
  */
 interface ModelCapability {
@@ -88,93 +97,281 @@ export interface RoutingSuggestionResult {
  */
 const TAG_KEYWORD_PATTERNS: Record<string, string[]> = {
   'deep-reasoning': [
-    '深度分析', '复杂推理', '逻辑推导', '深入思考', '仔细分析',
-    '详细推理', '逐步分析', '深度思考',
-    'deep analysis', 'complex reasoning', 'think step by step',
-    'detailed reasoning', 'thorough analysis',
+    '深度分析',
+    '复杂推理',
+    '逻辑推导',
+    '深入思考',
+    '仔细分析',
+    '详细推理',
+    '逐步分析',
+    '深度思考',
+    'deep analysis',
+    'complex reasoning',
+    'think step by step',
+    'detailed reasoning',
+    'thorough analysis',
   ],
   'fast-reasoning': [
-    '快速回答', '简单问题', '简短回复', '快速', '简单',
-    'quick answer', 'brief', 'short reply', 'simple question',
+    '快速回答',
+    '简单问题',
+    '简短回复',
+    '快速',
+    '简单',
+    'quick answer',
+    'brief',
+    'short reply',
+    'simple question',
   ],
   'web-search': [
-    '搜索', '查找', '最新', '实时', '新闻', '今天', '最近',
-    '当前', '现在', '热点', '时事',
-    'search', 'latest', 'news', 'current', 'today', 'recent',
-    'look up', 'find out', 'what happened',
+    '搜索',
+    '查找',
+    '最新',
+    '实时',
+    '新闻',
+    '今天',
+    '最近',
+    '当前',
+    '现在',
+    '热点',
+    '时事',
+    'search',
+    'latest',
+    'news',
+    'current',
+    'today',
+    'recent',
+    'look up',
+    'find out',
+    'what happened',
   ],
   'code-execution': [
-    '运行代码', '执行代码', '计算结果', '跑一下', '运行一下',
-    'run code', 'execute code', 'compute', 'run this',
+    '运行代码',
+    '执行代码',
+    '计算结果',
+    '跑一下',
+    '运行一下',
+    'run code',
+    'execute code',
+    'compute',
+    'run this',
   ],
   coding: [
-    '代码', '编程', '调试', 'debug', 'code', '程序', '函数',
-    'bug', '报错', '编译', 'programming', 'script', 'algorithm',
-    '重构', 'refactor', '开发', '实现', 'implement', 'develop',
-    'API', '接口', '类', 'class', '模块', 'module',
+    '代码',
+    '编程',
+    '调试',
+    'debug',
+    'code',
+    '程序',
+    '函数',
+    'bug',
+    '报错',
+    '编译',
+    'programming',
+    'script',
+    'algorithm',
+    '重构',
+    'refactor',
+    '开发',
+    '实现',
+    'implement',
+    'develop',
+    'API',
+    '接口',
+    '类',
+    'class',
+    '模块',
+    'module',
   ],
   'image-generation': [
-    '画一张', '生成图片', '图像生成', '绘制', '设计图', '插画',
-    '画图', '作图', '生成一张', '画一个',
-    'draw', 'generate image', 'picture', 'illustration', 'create image',
-    'make an image', 'design',
+    '画一张',
+    '生成图片',
+    '图像生成',
+    '绘制',
+    '设计图',
+    '插画',
+    '画图',
+    '作图',
+    '生成一张',
+    '画一个',
+    'draw',
+    'generate image',
+    'picture',
+    'illustration',
+    'create image',
+    'make an image',
+    'design',
   ],
   'video-generation': [
-    '生成视频', '制作视频', '视频创作', '做一个视频', '视频生成',
-    'generate video', 'create video', 'make video', 'produce video',
+    '生成视频',
+    '制作视频',
+    '视频创作',
+    '做一个视频',
+    '视频生成',
+    'generate video',
+    'create video',
+    'make video',
+    'produce video',
   ],
   'audio-tts': [
-    '语音合成', '朗读', '文字转语音', '播报', '读出来', '念一下',
-    'text to speech', 'tts', 'read aloud', 'voice', 'speak',
+    '语音合成',
+    '朗读',
+    '文字转语音',
+    '播报',
+    '读出来',
+    '念一下',
+    'text to speech',
+    'tts',
+    'read aloud',
+    'voice',
+    'speak',
   ],
   creative: [
-    '写一篇', '创作', '故事', '诗歌', '文案', '小说', '剧本',
-    '写作', '文章', '散文', '营销文案', '广告语', '标题',
-    'write a', 'story', 'poem', 'creative', 'novel', 'script',
-    'compose', 'draft', 'copywriting',
+    '写一篇',
+    '创作',
+    '故事',
+    '诗歌',
+    '文案',
+    '小说',
+    '剧本',
+    '写作',
+    '文章',
+    '散文',
+    '营销文案',
+    '广告语',
+    '标题',
+    'write a',
+    'story',
+    'poem',
+    'creative',
+    'novel',
+    'script',
+    'compose',
+    'draft',
+    'copywriting',
   ],
   'math-optimized': [
-    '计算', '数学', '公式', '方程', '求解', '算一下', '证明',
-    '微积分', '概率', '统计', '线性代数', '几何',
-    'calculate', 'math', 'formula', 'equation', 'solve', 'proof',
-    'calculus', 'probability', 'statistics',
+    '计算',
+    '数学',
+    '公式',
+    '方程',
+    '求解',
+    '算一下',
+    '证明',
+    '微积分',
+    '概率',
+    '统计',
+    '线性代数',
+    '几何',
+    'calculate',
+    'math',
+    'formula',
+    'equation',
+    'solve',
+    'proof',
+    'calculus',
+    'probability',
+    'statistics',
   ],
   'chinese-optimized': [
-    '中文写作', '汉语', '成语', '古诗', '文言文', '中文润色',
-    '中文翻译', '中文摘要',
+    '中文写作',
+    '汉语',
+    '成语',
+    '古诗',
+    '文言文',
+    '中文润色',
+    '中文翻译',
+    '中文摘要',
   ],
   vision: [
-    '看图', '图片分析', '识别图片', '这张图', '图中', '看一下这个',
-    '图片里', '截图', '照片',
-    'analyze image', 'look at', 'this image', 'in the picture',
-    'screenshot', 'photo', 'what do you see',
+    '看图',
+    '图片分析',
+    '识别图片',
+    '这张图',
+    '图中',
+    '看一下这个',
+    '图片里',
+    '截图',
+    '照片',
+    'analyze image',
+    'look at',
+    'this image',
+    'in the picture',
+    'screenshot',
+    'photo',
+    'what do you see',
   ],
   multimodal: [
-    '多模态', '图文', '看这个文件', '分析这个PDF',
-    'multimodal', 'image and text', 'analyze this file',
+    '多模态',
+    '图文',
+    '看这个文件',
+    '分析这个PDF',
+    'multimodal',
+    'image and text',
+    'analyze this file',
   ],
   'long-context': [
-    '长文档', '全文分析', '整篇', '完整阅读', '长文', '大量文本',
-    '全部内容', '整个文件',
-    'long document', 'full text', 'entire document', 'large text',
-    'whole file', 'complete document',
+    '长文档',
+    '全文分析',
+    '整篇',
+    '完整阅读',
+    '长文',
+    '大量文本',
+    '全部内容',
+    '整个文件',
+    'long document',
+    'full text',
+    'entire document',
+    'large text',
+    'whole file',
+    'complete document',
   ],
   'agent-capable': [
-    '帮我完成', '自动执行', '多步骤', '任务编排', '自动化',
-    '帮我做', '一步步完成',
-    'automate', 'multi-step', 'orchestrate', 'agent', 'step by step do',
+    '帮我完成',
+    '自动执行',
+    '多步骤',
+    '任务编排',
+    '自动化',
+    '帮我做',
+    '一步步完成',
+    'automate',
+    'multi-step',
+    'orchestrate',
+    'agent',
+    'step by step do',
   ],
   'function-calling': [
-    '调用工具', '使用工具', '函数调用', '调用API', '调用接口',
-    'call function', 'use tool', 'tool use', 'call API',
+    '调用工具',
+    '使用工具',
+    '函数调用',
+    '调用API',
+    '调用接口',
+    'call function',
+    'use tool',
+    'tool use',
+    'call API',
   ],
   'fast-response': [
-    '快速回复', '立即回答', '马上', '赶紧', '急',
-    'quick', 'fast', 'immediately', 'asap', 'hurry',
+    '快速回复',
+    '立即回答',
+    '马上',
+    '赶紧',
+    '急',
+    'quick',
+    'fast',
+    'immediately',
+    'asap',
+    'hurry',
   ],
   'cost-optimized': [
-    '省钱', '便宜', '低成本', '经济', '节省',
-    'cheap', 'save cost', 'budget', 'economical',
+    '省钱',
+    '便宜',
+    '低成本',
+    '经济',
+    '节省',
+    'cheap',
+    'save cost',
+    'budget',
+    'economical',
   ],
 };
 
@@ -198,9 +395,19 @@ const COMPOSITE_SCENARIOS: CompositeScenario[] = [
     name: '翻译',
     description: '多语言翻译任务，优先使用多语言能力强的模型',
     patterns: [
-      '翻译', 'translate', '英译中', '中译英', '转换成',
-      'translation', 'in english', 'in chinese', 'in japanese',
-      '翻成', '译成', '用英文', '用中文',
+      '翻译',
+      'translate',
+      '英译中',
+      '中译英',
+      '转换成',
+      'translation',
+      'in english',
+      'in chinese',
+      'in japanese',
+      '翻成',
+      '译成',
+      '用英文',
+      '用中文',
     ],
     preferTags: ['chinese-optimized', 'general-purpose', 'fast-reasoning'],
     fallbackToGeneral: true,
@@ -209,9 +416,20 @@ const COMPOSITE_SCENARIOS: CompositeScenario[] = [
     name: '总结摘要',
     description: '文本总结和摘要任务',
     patterns: [
-      '总结', '摘要', '概括', '归纳', '要点', '提炼', '精简',
-      'summarize', 'summary', 'brief', 'key points', 'tldr',
-      'condense', 'recap',
+      '总结',
+      '摘要',
+      '概括',
+      '归纳',
+      '要点',
+      '提炼',
+      '精简',
+      'summarize',
+      'summary',
+      'brief',
+      'key points',
+      'tldr',
+      'condense',
+      'recap',
     ],
     preferTags: ['long-context', 'general-purpose', 'fast-reasoning'],
     fallbackToGeneral: true,
@@ -220,22 +438,51 @@ const COMPOSITE_SCENARIOS: CompositeScenario[] = [
     name: '数据分析',
     description: '数据分析和统计任务',
     patterns: [
-      '分析数据', '数据分析', '统计', '报表', '图表', '趋势',
-      '数据处理', '数据挖掘',
-      'analyze data', 'data analysis', 'statistics', 'report',
-      'chart', 'trend', 'data processing',
+      '分析数据',
+      '数据分析',
+      '统计',
+      '报表',
+      '图表',
+      '趋势',
+      '数据处理',
+      '数据挖掘',
+      'analyze data',
+      'data analysis',
+      'statistics',
+      'report',
+      'chart',
+      'trend',
+      'data processing',
     ],
-    preferTags: ['deep-reasoning', 'coding', 'math-optimized', 'general-purpose'],
+    preferTags: [
+      'deep-reasoning',
+      'coding',
+      'math-optimized',
+      'general-purpose',
+    ],
     fallbackToGeneral: true,
   },
   {
     name: '知识问答',
     description: '通用知识问答和解释任务',
     patterns: [
-      '什么是', '为什么', '如何', '怎么', '是什么', '解释',
-      '请问', '告诉我', '介绍一下', '科普',
-      'what is', 'why', 'how to', 'explain', 'define',
-      'tell me about', 'describe',
+      '什么是',
+      '为什么',
+      '如何',
+      '怎么',
+      '是什么',
+      '解释',
+      '请问',
+      '告诉我',
+      '介绍一下',
+      '科普',
+      'what is',
+      'why',
+      'how to',
+      'explain',
+      'define',
+      'tell me about',
+      'describe',
     ],
     preferTags: ['general-purpose', 'deep-reasoning'],
     fallbackToGeneral: true,
@@ -244,10 +491,19 @@ const COMPOSITE_SCENARIOS: CompositeScenario[] = [
     name: '文档理解',
     description: '文档阅读理解和信息提取',
     patterns: [
-      '阅读理解', '文档分析', '提取信息', '文件内容', '读一下',
-      '这篇文章', '这个文档',
-      'read this', 'extract', 'document analysis', 'comprehension',
-      'this article', 'this document',
+      '阅读理解',
+      '文档分析',
+      '提取信息',
+      '文件内容',
+      '读一下',
+      '这篇文章',
+      '这个文档',
+      'read this',
+      'extract',
+      'document analysis',
+      'comprehension',
+      'this article',
+      'this document',
     ],
     preferTags: ['long-context', 'vision', 'general-purpose'],
     fallbackToGeneral: true,
@@ -256,8 +512,17 @@ const COMPOSITE_SCENARIOS: CompositeScenario[] = [
 
 /** Tags that are truly non-routable (not user-facing scenarios) */
 const NON_ROUTABLE_TAGS = new Set([
-  'premium', 'general-purpose', 'embedding', '3d-generation',
+  'premium',
+  'general-purpose',
+  'embedding',
+  '3d-generation',
 ]);
+
+/**
+ * Only generate a routing rule for a non-primary model when its confidence
+ * exceeds this threshold. Below this, the request stays on the primary model.
+ */
+const PRIMARY_OVERRIDE_CONFIDENCE_THRESHOLD = 80;
 
 @Injectable()
 export class RoutingSuggestionService {
@@ -271,11 +536,13 @@ export class RoutingSuggestionService {
    * @param providers - Bot's available models grouped by provider
    * @param capabilityTags - All active capability tags from DB
    * @param modelTagAssociations - Which models have which capability tags
+   * @param primaryModel - Bot's primary model (isPrimary=true), used as default + fallback anchor
    */
   async generateSuggestions(
     providers: ProviderInfo[],
     capabilityTags: CapabilityTagInfo[],
     modelTagAssociations: ModelTagAssociation[],
+    primaryModel?: PrimaryModelInfo,
   ): Promise<RoutingSuggestionResult> {
     // Build a flat list of all available models with their provider info
     const availableModels = this.buildAvailableModelList(providers);
@@ -284,6 +551,7 @@ export class RoutingSuggestionService {
       providerCount: providers.length,
       totalModels: availableModels.length,
       capabilityTagCount: capabilityTags.length,
+      primaryModel: primaryModel?.modelId ?? 'none',
     });
 
     // Build model -> tagIds lookup from associations
@@ -294,22 +562,33 @@ export class RoutingSuggestionService {
 
     // Analyze model capabilities based on tag associations
     const modelCapabilities = this.analyzeModelCapabilities(
-      availableModels, capabilityTags, modelTagMap,
+      availableModels,
+      capabilityTags,
+      modelTagMap,
     );
 
-    // Generate function route rules — one per routable capability tag
+    // Generate function route rules — only for non-primary models with high confidence
     const functionRouteRules = this.generateFunctionRouteRules(
-      availableModels, capabilityTags, modelTagMap,
+      availableModels,
+      capabilityTags,
+      modelTagMap,
+      primaryModel,
     );
 
-    // Default target: best general-purpose model
+    // Default target: primary model (fallback to general-purpose tag)
     const defaultTarget = this.selectDefaultTarget(
-      availableModels, capabilityTags, modelTagMap,
+      availableModels,
+      capabilityTags,
+      modelTagMap,
+      primaryModel,
     );
 
-    // Failover suggestion
+    // Failover suggestion: primary model as chain head
     const failoverSuggestion = this.generateFailoverSuggestion(
-      availableModels, capabilityTags, modelTagMap,
+      availableModels,
+      capabilityTags,
+      modelTagMap,
+      primaryModel,
     );
 
     const summary = this.generateSummary(modelCapabilities, functionRouteRules);
@@ -325,7 +604,11 @@ export class RoutingSuggestionService {
   private buildAvailableModelList(
     providers: ProviderInfo[],
   ): Array<{ modelId: string; providerKeyId: string; vendor: string }> {
-    const models: Array<{ modelId: string; providerKeyId: string; vendor: string }> = [];
+    const models: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }> = [];
     for (const provider of providers) {
       for (const modelId of provider.allowedModels) {
         models.push({
@@ -347,14 +630,21 @@ export class RoutingSuggestionService {
    * 3. null if no match
    */
   private findBestModelForTag(
-    availableModels: Array<{ modelId: string; providerKeyId: string; vendor: string }>,
+    availableModels: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }>,
     tag: CapabilityTagInfo,
     modelTagMap: Map<string, Set<string>>,
-  ): { modelId: string; providerKeyId: string; vendor: string; confidence: number } | null {
+  ): {
+    modelId: string;
+    providerKeyId: string;
+    vendor: string;
+    confidence: number;
+  } | null {
     const requiredModels = tag.requiredModels ?? [];
-    const availableSet = new Map(
-      availableModels.map((m) => [m.modelId, m]),
-    );
+    const availableSet = new Map(availableModels.map((m) => [m.modelId, m]));
 
     // Strategy 1: Check requiredModels list (ordered by priority)
     for (let i = 0; i < requiredModels.length; i++) {
@@ -390,9 +680,14 @@ export class RoutingSuggestionService {
   }
 
   private generateFunctionRouteRules(
-    availableModels: Array<{ modelId: string; providerKeyId: string; vendor: string }>,
+    availableModels: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }>,
     capabilityTags: CapabilityTagInfo[],
     modelTagMap: Map<string, Set<string>>,
+    primaryModel?: PrimaryModelInfo,
   ): SuggestedRoutingRule[] {
     const rules: SuggestedRoutingRule[] = [];
 
@@ -406,9 +701,24 @@ export class RoutingSuggestionService {
       if (!patterns || patterns.length === 0) continue;
 
       const bestModel = this.findBestModelForTag(
-        availableModels, tag, modelTagMap,
+        availableModels,
+        tag,
+        modelTagMap,
       );
       if (!bestModel) continue;
+
+      // Skip if best model IS the primary model (default route handles it)
+      if (primaryModel && bestModel.modelId === primaryModel.modelId) {
+        continue;
+      }
+
+      // Skip if confidence is below threshold — keep on primary model
+      if (
+        primaryModel &&
+        bestModel.confidence < PRIMARY_OVERRIDE_CONFIDENCE_THRESHOLD
+      ) {
+        continue;
+      }
 
       rules.push({
         name: tag.name,
@@ -435,9 +745,25 @@ export class RoutingSuggestionService {
     // Part 2: Composite scenario rules (common use cases)
     for (const scenario of COMPOSITE_SCENARIOS) {
       const bestModel = this.findBestModelForScenario(
-        availableModels, capabilityTags, modelTagMap, scenario,
+        availableModels,
+        capabilityTags,
+        modelTagMap,
+        scenario,
       );
       if (!bestModel) continue;
+
+      // Skip if best model IS the primary model
+      if (primaryModel && bestModel.modelId === primaryModel.modelId) {
+        continue;
+      }
+
+      // Skip if confidence is below threshold
+      if (
+        primaryModel &&
+        bestModel.confidence < PRIMARY_OVERRIDE_CONFIDENCE_THRESHOLD
+      ) {
+        continue;
+      }
 
       rules.push({
         name: scenario.name,
@@ -462,11 +788,20 @@ export class RoutingSuggestionService {
    * Find the best model for a composite scenario by checking preferred tags in order.
    */
   private findBestModelForScenario(
-    availableModels: Array<{ modelId: string; providerKeyId: string; vendor: string }>,
+    availableModels: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }>,
     capabilityTags: CapabilityTagInfo[],
     modelTagMap: Map<string, Set<string>>,
     scenario: CompositeScenario,
-  ): { modelId: string; providerKeyId: string; vendor: string; confidence: number } | null {
+  ): {
+    modelId: string;
+    providerKeyId: string;
+    vendor: string;
+    confidence: number;
+  } | null {
     // Try each preferred tag in order
     for (let i = 0; i < scenario.preferTags.length; i++) {
       const tagId = scenario.preferTags[i];
@@ -499,20 +834,42 @@ export class RoutingSuggestionService {
   }
 
   private selectDefaultTarget(
-    availableModels: Array<{ modelId: string; providerKeyId: string; vendor: string }>,
+    availableModels: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }>,
     capabilityTags: CapabilityTagInfo[],
     modelTagMap: Map<string, Set<string>>,
+    primaryModel?: PrimaryModelInfo,
   ): RoutingTarget {
-    // Find the "general-purpose" tag
+    // 1. Primary model takes priority as default target
+    if (primaryModel) {
+      const primaryAvailable = availableModels.find(
+        (m) => m.modelId === primaryModel.modelId,
+      );
+      if (primaryAvailable) {
+        return {
+          providerKeyId: primaryModel.providerKeyId,
+          model: primaryModel.modelId,
+        };
+      }
+    }
+
+    // 2. Fallback: find the "general-purpose" tag
     const gpTag = capabilityTags.find((t) => t.tagId === 'general-purpose');
     if (gpTag) {
-      const best = this.findBestModelForTag(availableModels, gpTag, modelTagMap);
+      const best = this.findBestModelForTag(
+        availableModels,
+        gpTag,
+        modelTagMap,
+      );
       if (best) {
         return { providerKeyId: best.providerKeyId, model: best.modelId };
       }
     }
 
-    // Fallback: pick the model that has the most capability tags
+    // 3. Fallback: pick the model that has the most capability tags
     let bestModel = availableModels[0];
     let maxTags = 0;
     for (const model of availableModels) {
@@ -530,36 +887,50 @@ export class RoutingSuggestionService {
   }
 
   private generateFailoverSuggestion(
-    availableModels: Array<{ modelId: string; providerKeyId: string; vendor: string }>,
+    availableModels: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }>,
     capabilityTags: CapabilityTagInfo[],
     modelTagMap: Map<string, Set<string>>,
+    primaryModel?: PrimaryModelInfo,
   ): { primary: RoutingTarget; fallbackChain: RoutingTarget[] } | undefined {
     if (availableModels.length < 2) return undefined;
 
-    // Score each model by how many capability tags it covers
-    const scored = availableModels.map((m) => ({
-      ...m,
-      tagCount: modelTagMap.get(m.modelId)?.size ?? 0,
-    }));
-    scored.sort((a, b) => b.tagCount - a.tagCount);
+    // Determine primary target
+    let primary: (typeof availableModels)[0];
 
-    // Check if model is in "premium" requiredModels
-    const premiumTag = capabilityTags.find((t) => t.tagId === 'premium');
-    const premiumModels = new Set(premiumTag?.requiredModels ?? []);
+    if (primaryModel) {
+      // Use the designated primary model
+      primary =
+        availableModels.find((m) => m.modelId === primaryModel.modelId) ||
+        availableModels[0];
+    } else {
+      // Legacy fallback: score by tag count + premium preference
+      const scored = availableModels.map((m) => ({
+        ...m,
+        tagCount: modelTagMap.get(m.modelId)?.size ?? 0,
+      }));
+      scored.sort((a, b) => b.tagCount - a.tagCount);
 
-    // Prefer premium models for primary
-    const premiumAvailable = scored.filter((m) =>
-      premiumModels.has(m.modelId) ||
-      [...premiumModels].some(
-        (pm) => m.modelId.toLowerCase().includes(pm.toLowerCase()),
-      ),
+      const premiumTag = capabilityTags.find((t) => t.tagId === 'premium');
+      const premiumModels = new Set(premiumTag?.requiredModels ?? []);
+      const premiumAvailable = scored.filter(
+        (m) =>
+          premiumModels.has(m.modelId) ||
+          [...premiumModels].some((pm) =>
+            m.modelId.toLowerCase().includes(pm.toLowerCase()),
+          ),
+      );
+
+      primary = premiumAvailable[0] || scored[0];
+    }
+
+    // Build fallback chain with vendor diversity (exclude primary)
+    const remaining = availableModels.filter(
+      (m) => m.modelId !== primary.modelId,
     );
-
-    const primary = premiumAvailable[0] || scored[0];
-
-    // Build fallback chain with vendor diversity
-    // Prefer models from different vendors than primary
-    const remaining = scored.filter((m) => m.modelId !== primary.modelId);
     const fallbacks: typeof remaining = [];
     const usedVendors = new Set([primary.vendor]);
 
@@ -590,12 +961,17 @@ export class RoutingSuggestionService {
   }
 
   private analyzeModelCapabilities(
-    availableModels: Array<{ modelId: string; providerKeyId: string; vendor: string }>,
+    availableModels: Array<{
+      modelId: string;
+      providerKeyId: string;
+      vendor: string;
+    }>,
     capabilityTags: CapabilityTagInfo[],
     modelTagMap: Map<string, Set<string>>,
   ): ModelCapability[] {
     return availableModels.map((model) => {
-      const assignedTagIds = modelTagMap.get(model.modelId) ?? new Set<string>();
+      const assignedTagIds =
+        modelTagMap.get(model.modelId) ?? new Set<string>();
       const score: Record<string, number> = {};
       const strengths: string[] = [];
       const bestFor: string[] = [];
@@ -656,7 +1032,10 @@ export class RoutingSuggestionService {
       })
       .sort((a, b) => b.tagCount - a.tagCount || b.avgScore - a.avgScore)
       .slice(0, 3)
-      .map((m) => `${m.model} (覆盖${m.tagCount}项能力, 平均${Math.round(m.avgScore)}分)`)
+      .map(
+        (m) =>
+          `${m.model} (覆盖${m.tagCount}项能力, 平均${Math.round(m.avgScore)}分)`,
+      )
       .join(', ');
 
     return `分析了 ${modelCount} 个模型，基于能力标签生成了 ${ruleCount} 条路由规则，平均置信度 ${avgConfidence}%。推荐模型: ${topModels}`;

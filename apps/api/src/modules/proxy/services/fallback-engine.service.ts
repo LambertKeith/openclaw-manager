@@ -1,6 +1,7 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional, OnModuleDestroy } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { FallbackChainService, FallbackChainModelService } from '@app/db';
 import { ModelResolverService, ResolvedModel } from './model-resolver.service';
 
 /**
@@ -73,22 +74,160 @@ export interface FallbackDecision {
  * - 追踪 Fallback 状态
  */
 @Injectable()
-export class FallbackEngineService {
-  // Fallback 链配置（后续从数据库加载）
+export class FallbackEngineService implements OnModuleDestroy {
+  // Fallback 链配置（运行时缓存）
   private fallbackChains: Map<string, FallbackChain> = new Map();
+  // Fallback 链缓存（数据库加载的配置）
+  private chainCache = new Map<
+    string,
+    { chain: FallbackChain; expiry: number }
+  >();
+  private readonly chainCacheTTL = 5 * 60 * 1000; // 5 分钟
 
   // 活跃的 Fallback 上下文
   private activeContexts: Map<string, FallbackContext> = new Map();
 
+  // 定期清理过期缓存的定时器
+  private cleanupInterval?: NodeJS.Timeout;
+
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
     @Optional() private readonly modelResolverService?: ModelResolverService,
+    @Optional() private readonly fallbackChainService?: FallbackChainService,
+    @Optional()
+    private readonly fallbackChainModelService?: FallbackChainModelService,
   ) {
     this.initializeDefaultChains();
+    // 每分钟清理过期缓存
+    this.cleanupInterval = setInterval(() => this.cleanupCache(), 60 * 1000);
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [chainId, entry] of this.chainCache) {
+      if (entry.expiry < now) {
+        this.chainCache.delete(chainId);
+      }
+    }
+  }
+
+  /**
+   * 清除 Fallback 链缓存
+   */
+  clearChainCache(chainId?: string): void {
+    if (chainId) {
+      this.chainCache.delete(chainId);
+      this.fallbackChains.delete(chainId);
+    } else {
+      this.chainCache.clear();
+      // 重新初始化默认链
+      this.initializeDefaultChains();
+    }
+  }
+
+  /**
+   * 从数据库加载 Fallback 链配置
+   */
+  async loadFallbackChainFromDb(
+    chainId: string,
+  ): Promise<FallbackChain | null> {
+    // 检查缓存
+    const cached = this.chainCache.get(chainId);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.chain;
+    }
+
+    // 从数据库加载
+    if (this.fallbackChainService && this.fallbackChainModelService) {
+      try {
+        const dbChain = await this.fallbackChainService.getByChainId(chainId);
+        if (!dbChain) {
+          return null;
+        }
+
+        // 获取模型列表
+        const models = await this.fallbackChainModelService.listByChainId(
+          dbChain.id,
+        );
+
+        // 构建 FallbackChain 对象
+        const chain = this.buildFallbackChain(dbChain, models);
+
+        // 缓存结果
+        this.chainCache.set(chainId, {
+          chain,
+          expiry: Date.now() + this.chainCacheTTL,
+        });
+
+        this.logger.info(
+          `[FallbackEngine] Loaded fallback chain from DB: ${chainId}`,
+        );
+
+        return chain;
+      } catch (error) {
+        this.logger.warn(
+          `[FallbackEngine] Failed to load fallback chain ${chainId} from DB`,
+          { error },
+        );
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 从数据库记录构建 FallbackChain 对象
+   */
+  private buildFallbackChain(dbChain: any, models: any[]): FallbackChain {
+    const fallbackModels: FallbackModel[] = models.map((m) => ({
+      modelCatalogId: m.modelCatalogId,
+      vendor: m.modelCatalog?.vendor || 'openai',
+      model: m.modelCatalog?.model || m.modelId,
+      protocol: this.inferProtocol(m.modelCatalog?.vendor),
+      displayName: m.modelCatalog?.displayName,
+    }));
+
+    return {
+      id: dbChain.id,
+      chainId: dbChain.chainId,
+      name: dbChain.name,
+      models: fallbackModels,
+      triggerStatusCodes: (dbChain.triggerStatusCodes as number[]) || [
+        429, 500, 502, 503, 504,
+      ],
+      triggerErrorTypes: (dbChain.triggerErrorTypes as string[]) || [
+        'rate_limit',
+        'overloaded',
+        'timeout',
+      ],
+      triggerTimeoutMs: dbChain.triggerTimeoutMs || 60000,
+      maxRetries: dbChain.maxRetries || 3,
+      retryDelayMs: dbChain.retryDelayMs || 2000,
+      preserveProtocol: dbChain.preserveProtocol ?? false,
+    };
+  }
+
+  /**
+   * 从 vendor 推断协议
+   */
+  private inferProtocol(
+    vendor?: string,
+  ): 'openai-compatible' | 'anthropic-native' {
+    return vendor === 'anthropic' ? 'anthropic-native' : 'openai-compatible';
   }
 
   /**
    * 初始化默认 Fallback 链
+   * GLM-5 优先链路: GLM-5 -> Claude Opus 4.6 -> DeepSeek V3.2
    */
   private initializeDefaultChains(): void {
     const defaultChains: FallbackChain[] = [
@@ -97,16 +236,21 @@ export class FallbackEngineService {
         name: '默认 Fallback 链',
         models: [
           {
+            vendor: 'zhipu',
+            model: 'glm-5',
+            protocol: 'openai-compatible',
+          },
+          {
             vendor: 'anthropic',
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-opus-4-6',
+            protocol: 'anthropic-native',
+          },
+          {
+            vendor: 'deepseek',
+            model: 'deepseek-v3-2-251201',
             protocol: 'openai-compatible',
           },
           { vendor: 'openai', model: 'gpt-4o', protocol: 'openai-compatible' },
-          {
-            vendor: 'deepseek',
-            model: 'deepseek-chat',
-            protocol: 'openai-compatible',
-          },
         ],
         triggerStatusCodes: [429, 500, 502, 503, 504],
         triggerErrorTypes: ['rate_limit', 'overloaded', 'timeout'],
@@ -120,23 +264,23 @@ export class FallbackEngineService {
         name: '深度推理 Fallback 链',
         models: [
           {
-            vendor: 'anthropic',
-            model: 'claude-sonnet-4-20250514',
-            protocol: 'anthropic-native',
+            vendor: 'zhipu',
+            model: 'glm-5',
+            protocol: 'openai-compatible',
             features: { extendedThinking: true },
           },
           {
             vendor: 'anthropic',
-            model: 'claude-opus-4-20250514',
+            model: 'claude-opus-4-6',
             protocol: 'anthropic-native',
             features: { extendedThinking: true },
           },
-          { vendor: 'openai', model: 'o1', protocol: 'openai-compatible' },
           {
             vendor: 'deepseek',
-            model: 'deepseek-reasoner',
+            model: 'deepseek-v3-2-251201',
             protocol: 'openai-compatible',
           },
+          { vendor: 'openai', model: 'o1', protocol: 'openai-compatible' },
         ],
         triggerStatusCodes: [429, 500, 502, 503, 504],
         triggerErrorTypes: ['rate_limit', 'overloaded', 'timeout'],
@@ -151,7 +295,7 @@ export class FallbackEngineService {
         models: [
           {
             vendor: 'deepseek',
-            model: 'deepseek-chat',
+            model: 'deepseek-v3-2-251201',
             protocol: 'openai-compatible',
           },
           {
@@ -160,8 +304,8 @@ export class FallbackEngineService {
             protocol: 'openai-compatible',
           },
           {
-            vendor: 'google',
-            model: 'gemini-2.0-flash-exp',
+            vendor: 'zhipu',
+            model: 'glm-4.5-flash',
             protocol: 'openai-compatible',
           },
         ],
@@ -267,6 +411,101 @@ export class FallbackEngineService {
   }
 
   /**
+   * 根据 bot 的可用模型动态生成 Fallback 链
+   * 主模型作为链首，其余按 vendor 多样性排列
+   *
+   * @param botId Bot ID
+   * @param availableModels Bot 的可用模型（包含 isPrimary）
+   * @param chainId 可选的链 ID，如果未提供则自动生成
+   * @returns 生成的 Fallback 链
+   */
+  buildDynamicFallbackChain(
+    botId: string,
+    availableModels: { model: string; vendor: string; isPrimary: boolean }[],
+    chainId?: string,
+  ): FallbackChain {
+    if (availableModels.length === 0) {
+      throw new Error(`No available models for bot ${botId}`);
+    }
+
+    // 1. 找到主模型
+    const primaryModel = availableModels.find((m) => m.isPrimary);
+    const nonPrimaryModels = availableModels.filter((m) => !m.isPrimary);
+
+    // 2. 构建模型列表：主模型在首位
+    const models: FallbackModel[] = [];
+
+    if (primaryModel) {
+      models.push({
+        vendor: primaryModel.vendor,
+        model: primaryModel.model,
+        protocol: this.inferProtocol(primaryModel.vendor),
+      });
+    }
+
+    // 3. 按 vendor 多样性排列非主模型
+    const usedVendors = new Set(primaryModel ? [primaryModel.vendor] : []);
+
+    // 第一轮：不同 vendor 的模型
+    for (const m of nonPrimaryModels) {
+      if (models.length >= 4) break; // 最多 4 个模型
+      if (!usedVendors.has(m.vendor)) {
+        models.push({
+          vendor: m.vendor,
+          model: m.model,
+          protocol: this.inferProtocol(m.vendor),
+        });
+        usedVendors.add(m.vendor);
+      }
+    }
+
+    // 第二轮：填充剩余位置
+    for (const m of nonPrimaryModels) {
+      if (models.length >= 4) break;
+      if (!models.some((existing) => existing.model === m.model)) {
+        models.push({
+          vendor: m.vendor,
+          model: m.model,
+          protocol: this.inferProtocol(m.vendor),
+        });
+      }
+    }
+
+    const effectiveChainId = chainId || `bot-${botId}-dynamic`;
+
+    return {
+      chainId: effectiveChainId,
+      name: `Bot ${botId} 动态 Fallback 链`,
+      models,
+      triggerStatusCodes: [429, 500, 502, 503, 504],
+      triggerErrorTypes: ['rate_limit', 'overloaded', 'timeout'],
+      triggerTimeoutMs: 60000,
+      maxRetries: Math.min(models.length, 3),
+      retryDelayMs: 2000,
+      preserveProtocol: false,
+    };
+  }
+
+  /**
+   * 为 bot 注册动态 Fallback 链（替代硬编码默认链）
+   *
+   * @param botId Bot ID
+   * @param availableModels Bot 的可用模型
+   * @returns 注册的 chainId
+   */
+  registerBotFallbackChain(
+    botId: string,
+    availableModels: { model: string; vendor: string; isPrimary: boolean }[],
+  ): string {
+    const chain = this.buildDynamicFallbackChain(botId, availableModels);
+    this.fallbackChains.set(chain.chainId, chain);
+    this.logger.info(
+      `[FallbackEngine] Registered dynamic chain for bot ${botId}: ${chain.models.map((m) => m.model).join(' → ')}`,
+    );
+    return chain.chainId;
+  }
+
+  /**
    * 获取下一个 Fallback 模型
    */
   getNextFallback(
@@ -354,10 +593,33 @@ export class FallbackEngineService {
   }
 
   /**
-   * 获取 Fallback 链配置
+   * 获取 Fallback 链配置（同步版本，仅返回已缓存的链）
    */
   getFallbackChain(chainId: string): FallbackChain | undefined {
     return this.fallbackChains.get(chainId);
+  }
+
+  /**
+   * 获取 Fallback 链配置（异步版本，尝试从数据库加载）
+   */
+  async getFallbackChainAsync(
+    chainId: string,
+  ): Promise<FallbackChain | undefined> {
+    // 先检查内存缓存
+    const cached = this.fallbackChains.get(chainId);
+    if (cached) {
+      return cached;
+    }
+
+    // 尝试从数据库加载
+    const dbChain = await this.loadFallbackChainFromDb(chainId);
+    if (dbChain) {
+      // 更新内存缓存
+      this.fallbackChains.set(chainId, dbChain);
+      return dbChain;
+    }
+
+    return undefined;
   }
 
   /**
@@ -429,7 +691,9 @@ export class FallbackEngineService {
       return [];
     }
 
-    return this.modelResolverService.resolveAll(model, { excludeProviderKeyIds });
+    return this.modelResolverService.resolveAll(model, {
+      excludeProviderKeyIds,
+    });
   }
 
   /**

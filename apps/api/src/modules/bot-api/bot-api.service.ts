@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -22,6 +24,8 @@ import { BotConfigResolverService } from './services/bot-config-resolver.service
 import { AvailableModelService } from './services/available-model.service';
 import { ModelVerificationService } from './services/model-verification.service';
 import type { Bot, ProviderKey, BotStatus, Prisma } from '@prisma/client';
+import { PluginApiService } from '../plugin-api/plugin-api.service';
+import { SkillApiService } from '../skill-api/skill-api.service';
 import type {
   CreateBotInput,
   SimpleCreateBotInput,
@@ -57,6 +61,10 @@ export class BotApiService {
     private readonly botConfigResolver: BotConfigResolverService,
     private readonly availableModelService: AvailableModelService,
     private readonly modelVerificationService: ModelVerificationService,
+    @Inject(forwardRef(() => PluginApiService))
+    private readonly pluginApiService: PluginApiService,
+    @Inject(forwardRef(() => SkillApiService))
+    private readonly skillApiService: SkillApiService,
   ) {
     this.logger.log(`BotApiService initialized`);
   }
@@ -317,9 +325,11 @@ export class BotApiService {
       try {
         // Determine the vendor for proxy registration
         // For custom providers, use apiType (e.g., "openai") to match the proxy URL
+        // For domestic providers (apiType differs from vendor), also use apiType
         // This ensures the vendor in ProxyToken matches the vendor in the proxy URL
         const proxyVendor =
-          primaryProvider.providerId === 'custom' && apiType
+          primaryProvider.providerId === 'custom' ||
+          (apiType && primaryProvider.providerId !== apiType)
             ? apiType
             : primaryProvider.providerId;
 
@@ -857,18 +867,17 @@ export class BotApiService {
                     providerKey.vendor as keyof typeof PROVIDER_CONFIGS
                   ];
                 apiType =
-                  providerKey.apiType ||
-                  providerConfig?.apiType ||
-                  'openai';
+                  providerKey.apiType || providerConfig?.apiType || 'openai';
                 apiBaseUrl = providerKey.baseUrl || undefined;
 
                 if (useZeroTrust) {
                   // Zero-trust mode: Register bot with proxy
                   try {
                     // Determine the vendor for proxy registration
-                    // For custom providers, use apiType (e.g., "openai") to match the proxy URL
+                    // For custom or domestic providers (apiType differs from vendor), use apiType
                     const proxyVendor =
-                      providerKey.vendor === 'custom' && apiType
+                      providerKey.vendor === 'custom' ||
+                      (apiType && providerKey.vendor !== apiType)
                         ? apiType
                         : providerKey.vendor;
 
@@ -976,6 +985,17 @@ export class BotApiService {
       }
 
       await this.botService.update({ id: bot.id }, { status: 'running' });
+
+      // Reconcile bot plugins after container starts
+      await this.pluginApiService.reconcileBotPlugins(bot.id, bot.containerId);
+
+      // Reconcile bot skills after container starts
+      await this.skillApiService.reconcileBotSkills(
+        bot.id,
+        bot.containerId,
+        userId,
+        hostname,
+      );
 
       // Log operation
       await this.operateLogService.create({
@@ -1314,7 +1334,8 @@ export class BotApiService {
                   Buffer.from(providerKey.secretEncrypted),
                 );
                 const verifyResult = await this.providerVerifyClient.verify({
-                  vendor: providerKey.vendor as VerifyProviderKeyInput['vendor'],
+                  vendor:
+                    providerKey.vendor as VerifyProviderKeyInput['vendor'],
                   secret,
                   baseUrl: providerKey.baseUrl || undefined,
                 });
