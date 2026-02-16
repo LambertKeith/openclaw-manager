@@ -729,11 +729,7 @@ export class ModelVerificationService {
     try {
       switch (effectiveApiType) {
         case 'anthropic':
-          // Anthropic 没有公开的 /models 端点，使用默认列表
-          this.logger.debug(
-            '[ModelVerification] Anthropic API does not have /models endpoint',
-          );
-          return [];
+          return this.fetchAnthropicModels(baseUrl, apiKey);
 
         case 'gemini':
           return this.fetchGeminiModels(baseUrl, apiKey);
@@ -796,6 +792,59 @@ export class ModelVerificationService {
       this.logger.warn('[ModelVerification] Error fetching OpenAI models', {
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+
+    return [];
+  }
+
+  /**
+   * 从 Anthropic API 获取模型列表
+   * 优先使用 /v1/models 端点，失败时 fallback 到 OpenAI 兼容方式（适用于中转地址）
+   */
+  private async fetchAnthropicModels(
+    baseUrl: string,
+    apiKey: string,
+  ): Promise<string[]> {
+    const url = `${baseUrl}/v1/models?limit=1000`;
+    const headers = this.getAuthHeaders('anthropic', apiKey);
+
+    try {
+      this.logger.info(
+        `[ModelVerification] Fetching Anthropic models from: ${url}`,
+      );
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `[ModelVerification] Failed to fetch Anthropic models: ${response.status}, falling back to OpenAI compatible`,
+        );
+        return this.fetchOpenAICompatibleModels(baseUrl, apiKey);
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{ id: string; display_name?: string; type?: string }>;
+      };
+
+      if (data.data && Array.isArray(data.data)) {
+        const models = data.data.map((m) => m.id);
+        this.logger.info(
+          `[ModelVerification] Found ${models.length} Anthropic models from endpoint`,
+        );
+        return models;
+      }
+    } catch (error) {
+      this.logger.warn(
+        '[ModelVerification] Error fetching Anthropic models, falling back to OpenAI compatible',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+      return this.fetchOpenAICompatibleModels(baseUrl, apiKey);
     }
 
     return [];

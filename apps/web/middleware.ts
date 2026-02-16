@@ -20,7 +20,7 @@ export default async function middleware(request: NextRequest) {
   if (
     pathname.includes('/_next') ||
     pathname.includes('/static') ||
-    pathname.includes('/api') ||
+    pathname.startsWith('/api') ||
     pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp)$/)
   ) {
     return NextResponse.next();

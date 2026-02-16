@@ -88,6 +88,9 @@ RUN pnpm turbo run build --filter=@repo/validators --filter=@repo/constants --fi
 # Build API (uses pre-generated Prisma client)
 RUN cd apps/api && pnpm run build
 
+# Compile seed script and data files (output to dist-seed, separate from nest build output)
+RUN cd apps/api && npx tsc --project tsconfig.seed.json
+
 # Build web app
 RUN pnpm turbo run build --filter=@repo/web
 
@@ -182,6 +185,18 @@ COPY --from=builder /app/packages/constants/dist ./packages/constants/dist
 COPY --from=builder /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=builder /app/packages/utils/dist ./packages/utils/dist
 COPY --from=builder /app/packages/validators/dist ./packages/validators/dist
+# Copy compiled seed script (for first-time data initialization)
+COPY --from=builder /app/apps/api/dist-seed ./apps/api/dist-seed
+COPY --from=builder /app/apps/api/tsconfig.seed.json ./apps/api/tsconfig.seed.json
+
+# Install prisma CLI globally (required for migrate deploy at runtime)
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm add -g prisma@7.3.0
+
+# Copy entrypoint script
+COPY docker-entrypoint-api.sh /app/docker-entrypoint-api.sh
+RUN chmod +x /app/docker-entrypoint-api.sh
 
 # Environment
 ENV NODE_ENV=production
@@ -191,7 +206,7 @@ EXPOSE 3200
 
 WORKDIR /app/apps/api
 
-CMD ["node", "-r", "tsconfig-paths/register", "dist/apps/api/src/main"]
+ENTRYPOINT ["/app/docker-entrypoint-api.sh"]
 
 # -----------------------------------------------------------------------------
 # Web Production stage: Next.js frontend

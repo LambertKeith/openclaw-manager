@@ -101,6 +101,8 @@ services:
       # Format: <project-name>_<volume-name> (docker compose prefixes with project name)
       DATA_VOLUME_NAME: ${DATA_VOLUME_NAME:-clawbot-manager_clawbot-data}
       SECRETS_VOLUME_NAME: ${SECRETS_VOLUME_NAME:-clawbot-manager_clawbot-secrets}
+      # Set RUN_SEED=true for first deployment to initialize seed data
+      RUN_SEED: ${RUN_SEED:-false}
     ports:
       - '${API_PORT:-13100}:3200'
     volumes:
