@@ -64,7 +64,7 @@ export class DockerService implements OnModuleInit {
   private readonly openclawVolumeName: string | null;
 
   constructor(private readonly configService: ConfigService) {
-    this.botImage = process.env.BOT_IMAGE || 'openclaw:latest';
+    this.botImage = process.env.BOT_IMAGE || process.env.BOTENV_IMAGE || 'openclaw:latest';
     // 环境变量为字符串，需显式转换为 number，否则 Prisma Int 字段会校验失败
     const portStartRaw = process.env.BOT_PORT_START || 9200;
     this.portStart =
