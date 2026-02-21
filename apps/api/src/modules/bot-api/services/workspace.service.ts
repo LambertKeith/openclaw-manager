@@ -85,8 +85,9 @@ export class WorkspaceService {
         // OpenClaw data is only cleaned up when the bot is explicitly deleted
       }
 
-      // Create workspace directory
+      // Create workspace directory (chown to node user UID 1000 for bot container access)
       await fs.mkdir(workspacePath, { recursive: true });
+      await fs.chown(workspacePath, 1000, 1000);
 
       // Create config file
       const configPath = path.join(workspacePath, 'config.json');
@@ -107,7 +108,9 @@ export class WorkspaceService {
       await fs.mkdir(botSecretsPath, { recursive: true });
 
       // Create OpenClaw data directory for this bot (for persistent memory/sessions)
+      // chown to node user UID 1000 so bot container can write to this directory
       await fs.mkdir(openclawPath, { recursive: true });
+      await fs.chown(openclawPath, 1000, 1000);
 
       this.logger.info(`Workspace created for bot: ${isolationKey}`);
       return workspacePath;
@@ -260,6 +263,7 @@ export class WorkspaceService {
   async ensureOpenclawDir(userId: string, hostname: string): Promise<string> {
     const openclawPath = this.getOpenclawPath(userId, hostname);
     await fs.mkdir(openclawPath, { recursive: true });
+    await fs.chown(openclawPath, 1000, 1000);
     return openclawPath;
   }
 
