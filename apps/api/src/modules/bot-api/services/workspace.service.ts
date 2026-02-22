@@ -526,8 +526,7 @@ export class WorkspaceService {
   ): Promise<void> {
     const skillsDir = this.getSkillsPath(userId, hostname);
     await fs.mkdir(skillsDir, { recursive: true });
-
-    // 清理不再存在的旧 MD 文件（并行删除）
+    await fs.chown(skillsDir, 1000, 1000);
     const currentNames = new Set(skills.map((s) => `${s.name}.md`));
     try {
       const entries = await fs.readdir(skillsDir);
@@ -620,6 +619,7 @@ export class WorkspaceService {
     const skillsDir = this.getSkillsPath(userId, hostname);
     const skillDir = path.join(skillsDir, skillName);
     await fs.mkdir(skillDir, { recursive: true });
+    await fs.chown(skillDir, 1000, 1000);
     await fs.writeFile(path.join(skillDir, 'SKILL.md'), content, 'utf-8');
   }
 
@@ -639,6 +639,7 @@ export class WorkspaceService {
     // 清理旧目录，确保干净安装
     await fs.rm(skillDir, { recursive: true, force: true });
     await fs.mkdir(skillDir, { recursive: true });
+    await fs.chown(skillDir, 1000, 1000);
 
     try {
       for (const file of files) {
@@ -663,7 +664,9 @@ export class WorkspaceService {
           continue;
         }
 
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        const dirPath = path.dirname(filePath);
+        await fs.mkdir(dirPath, { recursive: true });
+        await fs.chown(dirPath, 1000, 1000);
         await fs.writeFile(filePath, file.content, 'utf-8');
       }
     } catch (error) {
